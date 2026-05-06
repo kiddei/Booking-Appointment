@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 430" fill="none">
+  <defs>
+    <radialGradient id="faceGrad" cx="42%" cy="35%" r="62%">
+      <stop offset="0%"   stop-color="#22223a"/>
+      <stop offset="100%" stop-color="#0c0c1a"/>
+    </radialGradient>
+    <linearGradient id="handleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#141420"/>
+      <stop offset="50%"  stop-color="#1e1e30"/>
+      <stop offset="100%" stop-color="#141420"/>
+    </linearGradient>
+    <radialGradient id="faceShine" cx="38%" cy="30%" r="50%">
+      <stop offset="0%"   stop-color="rgba(255,255,255,0.07)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ── Handle / grip ───────────────────────────────── -->
+  <rect x="77" y="258" width="66" height="152" rx="18" fill="url(#handleGrad)" stroke="rgba(200,255,0,0.25)" stroke-width="1.5"/>
+
+  <!-- Grip tape wraps -->
+  <line x1="83"  y1="278" x2="137" y2="278" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="83"  y1="294" x2="137" y2="294" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="83"  y1="310" x2="137" y2="310" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="83"  y1="326" x2="137" y2="326" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="83"  y1="342" x2="137" y2="342" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="83"  y1="358" x2="137" y2="358" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="83"  y1="374" x2="137" y2="374" stroke="rgba(200,255,0,0.18)" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Butt cap -->
+  <rect x="80" y="392" width="60" height="18" rx="9" fill="#0c0c1a" stroke="rgba(200,255,0,0.45)" stroke-width="1.5"/>
+
+  <!-- ── Paddle face ─────────────────────────────────── -->
+  <!-- Outer glow border -->
+  <path d="M110 10 C52 10 8 56 8 132 C8 198 46 248 88 258 L88 268 L132 268 L132 258 C174 248 212 198 212 132 C212 56 168 10 110 10Z"
+        fill="none" stroke="rgba(200,255,0,0.55)" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Face body -->
+  <path d="M110 14 C55 14 13 58 13 132 C13 196 49 244 90 254 L90 262 L130 262 L130 254 C171 244 207 196 207 132 C207 58 165 14 110 14Z"
+        fill="url(#faceGrad)"/>
+
+  <!-- Face shine -->
+  <path d="M110 14 C55 14 13 58 13 132 C13 196 49 244 90 254 L90 262 L130 262 L130 254 C171 244 207 196 207 132 C207 58 165 14 110 14Z"
+        fill="url(#faceShine)"/>
+
+  <!-- Horizontal court lines across face -->
+  <path d="M26 80  Q110 76  194 80"  stroke="rgba(200,255,0,0.07)" stroke-width="1" fill="none"/>
+  <path d="M18 108 Q110 103 202 108" stroke="rgba(200,255,0,0.07)" stroke-width="1" fill="none"/>
+  <path d="M14 136 Q110 131 206 136" stroke="rgba(200,255,0,0.10)" stroke-width="1.5" fill="none"/>
+  <path d="M16 164 Q110 159 204 164" stroke="rgba(200,255,0,0.07)" stroke-width="1" fill="none"/>
+  <path d="M24 192 Q110 188 196 192" stroke="rgba(200,255,0,0.07)" stroke-width="1" fill="none"/>
+  <path d="M44 220 Q110 217 176 220" stroke="rgba(200,255,0,0.06)" stroke-width="1" fill="none"/>
+
+  <!-- Center vertical line -->
+  <line x1="110" y1="18" x2="110" y2="255" stroke="rgba(200,255,0,0.05)" stroke-width="1"/>
+
+  <!-- Brand name -->
+  <text x="110" y="118"
+        text-anchor="middle"
+        font-family="Arial Black, Impact, sans-serif"
+        font-size="28" font-weight="900"
+        fill="rgba(200,255,0,0.75)"
+        letter-spacing="2">PICKLE</text>
+  <text x="110" y="148"
+        text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="13" font-weight="700"
+        fill="rgba(200,255,0,0.45)"
+        letter-spacing="8">PRO</text>
+
+  <!-- Center emblem -->
+  <circle cx="110" cy="196" r="12" fill="none" stroke="rgba(200,255,0,0.2)" stroke-width="1.5"/>
+  <circle cx="110" cy="196" r="4"  fill="rgba(200,255,0,0.35)"/>
+</svg>
