@@ -62,7 +62,7 @@ export default function DashboardPage() {
             </div>
             <div className="stat-card">
               <div className="stat-card__label">Total Spent</div>
-              <div className="stat-card__value">${totalSpent.toFixed(2)}</div>
+              <div className="stat-card__value">₱{totalSpent.toFixed(2)}</div>
               <div className="stat-card__sub">excl. cancelled</div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function DashboardPage() {
                         </td>
                         <td>{formatDate(b.bookingDate)}</td>
                         <td>{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
-                        <td style={{ color: 'var(--text)', fontWeight: 600 }}>${Number(b.totalAmount).toFixed(2)}</td>
+                        <td style={{ color: 'var(--text)', fontWeight: 600 }}>₱{Number(b.totalAmount).toFixed(2)}</td>
                         <td><StatusBadge status={b.status} /></td>
                         <td onClick={e => e.stopPropagation()}>
                           {b.status === 'CONFIRMED' && (

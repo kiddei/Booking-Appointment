@@ -183,7 +183,7 @@ export default function HomePage() {
                     <div className="court-card__meta">
                       <span className="court-meta-item">Up to {court.maxPlayers} players</span>
                       <span className="court-meta-item court-meta-item--price">
-                        <span className="price-amount">${court.hourlyRate.toFixed(2)}</span>
+                        <span className="price-amount">₱{court.hourlyRate.toFixed(2)}</span>
                         <span className="price-unit">/ hr</span>
                       </span>
                     </div>

@@ -72,6 +72,7 @@ export default function BookingDetailPage() {
                     {booking.courtName}
                     <span style={{ display: 'block', fontSize: 12, color: 'var(--text-3)' }}>
                       {booking.courtIndoor ? 'Indoor' : 'Outdoor'}
+                      {booking.courtNumber ? ` · Court ${booking.courtNumber}` : ''}
                     </span>
                   </span>
                 </div>
@@ -107,7 +108,7 @@ export default function BookingDetailPage() {
                   <div className="detail-item">
                     <span className="detail-item__label">Total</span>
                     <span className="detail-item__value" style={{ fontSize: 24, fontWeight: 700, color: 'var(--neon)' }}>
-                      ${Number(booking.totalAmount).toFixed(2)}
+                      ₱{Number(booking.totalAmount).toFixed(2)}
                     </span>
                   </div>
                 </div>

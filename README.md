@@ -130,6 +130,21 @@ npm run db:reset    # wipes all data and re-seeds test accounts
 
 ---
 
+## View Database Data
+
+Use **Prisma Studio** — a browser-based GUI that lets you browse and edit all tables without a separate database tool:
+
+```powershell
+cd backend
+npx prisma studio
+```
+
+Opens at **http://localhost:5555**. You'll see the `User`, `Court`, and `Booking` tables with full read/write access.
+
+> Alternatively connect any PostgreSQL client (TablePlus, DBeaver, pgAdmin) to `localhost:5432`, database `pickleballdb`, using the credentials in `backend/.env`.
+
+---
+
 ## Production Build
 
 **Backend:**

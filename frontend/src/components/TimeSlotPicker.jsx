@@ -17,7 +17,7 @@ function toMinutes(hhmm) {
   return h * 60 + m
 }
 
-export default function TimeSlotPicker({ courtId, date, startTime, endTime, onChange }) {
+export default function TimeSlotPicker({ courtId, date, courtNumber = 1, startTime, endTime, onChange }) {
   const [booked,  setBooked]  = useState([])
   const [loading, setLoading] = useState(false)
   const onChangeRef = useRef(onChange)
@@ -26,11 +26,11 @@ export default function TimeSlotPicker({ courtId, date, startTime, endTime, onCh
   useEffect(() => {
     if (!courtId || !date) { setBooked([]); return }
     setLoading(true)
-    client.get(`/courts/${courtId}/availability?date=${date}`)
+    client.get(`/courts/${courtId}/availability?date=${date}&courtNumber=${courtNumber}`)
       .then(r => setBooked(r.data))
       .catch(() => setBooked([]))
       .finally(() => setLoading(false))
-  }, [courtId, date])
+  }, [courtId, date, courtNumber])
 
   // Reset selection when court or date changes
   useEffect(() => {
