@@ -1,11 +1,11 @@
 import {
-  IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Max, Min,
+  IsBoolean, IsNumber, IsOptional, IsPositive, IsString, Max, Min,
 } from 'class-validator'
 
-export class CreateCourtDto {
+export class UpdateCourtDto {
   @IsString()
-  @IsNotEmpty()
-  name: string
+  @IsOptional()
+  name?: string
 
   @IsString()
   @IsOptional()
@@ -41,4 +41,8 @@ export class CreateCourtDto {
   @IsPositive()
   @IsOptional()
   hourlyRate?: number
+
+  @IsBoolean()
+  @IsOptional()
+  active?: boolean
 }

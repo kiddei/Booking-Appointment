@@ -41,6 +41,7 @@ export class BookingsService {
     const conflict = await this.prisma.booking.findFirst({
       where: {
         courtId: dto.courtId,
+        courtNumber: dto.courtNumber,
         status: 'CONFIRMED',
         AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
       },
@@ -48,7 +49,7 @@ export class BookingsService {
     if (conflict) throw new BadRequestException('Court is not available for the requested time slot')
 
     const booking = await this.prisma.booking.create({
-      data: { userId, courtId: dto.courtId, startTime: start, endTime: end },
+      data: { userId, courtId: dto.courtId, courtNumber: dto.courtNumber, startTime: start, endTime: end },
       include: { court: true },
     })
     return this.format(booking)
@@ -86,6 +87,7 @@ export class BookingsService {
       totalAmount: (hours * booking.court.hourlyRate).toFixed(2),
       courtName:   booking.court.name,
       courtIndoor: booking.court.indoor,
+      courtNumber: booking.courtNumber,
       court:       booking.court,
       createdAt:   booking.createdAt,
       userId:      booking.userId,

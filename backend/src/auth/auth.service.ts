@@ -17,6 +17,9 @@ export class AuthService {
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid credentials')
     }
+    if (!user.active) {
+      throw new UnauthorizedException('Account is disabled. Contact an administrator.')
+    }
     const token = this.jwt.sign({ sub: user.id, username: user.username, role: user.role })
     return {
       token,

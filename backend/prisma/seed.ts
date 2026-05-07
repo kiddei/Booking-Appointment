@@ -20,9 +20,21 @@ async function main() {
   })
 
   const courts = [
-    { name: 'Court 1 – Indoor', description: 'Climate-controlled indoor court', indoor: true,  maxPlayers: 4, hourlyRate: 30.0 },
-    { name: 'Court 2 – Outdoor', description: 'Outdoor hardcourt with lighting',  indoor: false, maxPlayers: 4, hourlyRate: 20.0 },
-    { name: 'Court 3 – VIP',     description: 'Premium court with spectator seating', indoor: true, maxPlayers: 6, hourlyRate: 50.0 },
+    {
+      name: 'PicklePro Indoor Complex', description: 'Climate-controlled indoor courts with pro-grade surfaces',
+      location: '123 Pickle Ave, Makati City, Metro Manila', ownerName: 'PicklePro Management',
+      contactNumber: '+63 917 100 0001', indoor: true, totalCourts: 4, maxPlayers: 4, hourlyRate: 300.0,
+    },
+    {
+      name: 'PicklePro Outdoor Courts', description: 'Open-air hardcourts with floodlights for evening play',
+      location: '456 Sports Drive, BGC, Taguig City', ownerName: 'PicklePro Management',
+      contactNumber: '+63 917 100 0002', indoor: false, totalCourts: 6, maxPlayers: 4, hourlyRate: 200.0,
+    },
+    {
+      name: 'PicklePro VIP Club', description: 'Premium courts with spectator seating and lounge access',
+      location: '789 Elite Blvd, Bonifacio Global City, Taguig', ownerName: 'PicklePro Management',
+      contactNumber: '+63 917 100 0003', indoor: true, totalCourts: 2, maxPlayers: 6, hourlyRate: 500.0,
+    },
   ]
 
   for (const court of courts) {

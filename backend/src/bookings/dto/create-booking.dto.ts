@@ -1,9 +1,13 @@
-import { IsInt, IsPositive, IsString, Matches } from 'class-validator'
+import { IsInt, IsPositive, IsString, Matches, Min } from 'class-validator'
 
 export class CreateBookingDto {
   @IsInt()
   @IsPositive()
   courtId: number
+
+  @IsInt()
+  @Min(1)
+  courtNumber: number
 
   @IsString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'bookingDate must be YYYY-MM-DD' })

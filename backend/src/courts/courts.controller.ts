@@ -14,8 +14,17 @@ export class CourtsController {
   availability(
     @Param('id', ParseIntPipe) id: number,
     @Query('date') date: string,
+    @Query('courtNumber') courtNumber?: string,
   ) {
-    return this.courts.getAvailability(id, date)
+    return this.courts.getAvailability(id, date, courtNumber ? Number(courtNumber) : 1)
+  }
+
+  @Get(':id/courts-status')
+  courtsStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('date') date: string,
+  ) {
+    return this.courts.getCourtsStatus(id, date)
   }
 
   @Get(':id')

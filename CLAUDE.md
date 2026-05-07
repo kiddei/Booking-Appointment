@@ -50,20 +50,24 @@ Booking-Appointment/
 └── backend/                   NestJS REST API
     ├── prisma/
     │   ├── schema.prisma      Prisma schema (User, Court, Booking)
+    │   ├── migrations/        Auto-generated migration history
     │   └── seed.ts            Dev seed (admin + player1 + 3 courts)
     ├── src/
     │   ├── main.ts            Bootstrap (cookieParser, CORS, ValidationPipe)
     │   ├── app.module.ts      Root module
     │   ├── prisma/            PrismaService (global)
     │   ├── auth/              AuthModule
-    │   │   ├── auth.service.ts       login(), register()
+    │   │   ├── auth.service.ts       login() — checks user.active, register()
     │   │   ├── auth.controller.ts    /api/auth/*
     │   │   ├── strategies/jwt.strategy.ts   cookie-based JWT extraction
     │   │   ├── guards/        JwtAuthGuard, RolesGuard
     │   │   └── decorators/    @CurrentUser, @Roles
-    │   ├── courts/            CourtsModule — /api/courts
+    │   ├── courts/            CourtsModule — /api/courts (public read)
+    │   │   └── dto/           create-court.dto.ts, update-court.dto.ts
     │   ├── bookings/          BookingsModule — /api/bookings
     │   └── admin/             AdminModule — /api/admin (ADMIN only)
+    │       ├── admin.service.ts      All admin business logic (courts, users, bookings, stats)
+    │       └── admin.controller.ts   Thin HTTP layer only
     ├── .env                   Local env (git-ignored)
     ├── .env.example           Template
     ├── package.json
@@ -89,6 +93,8 @@ Booking-Appointment/
 - **CORS:** `http://localhost:5173` allowed in dev (`main.ts`); disabled in production (same-origin).
 - **Role enforcement:** `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('ADMIN')` at controller class level.
 - **Password fields** are never returned from services — use `select` to exclude `passwordHash`.
+- **Disabled users** (`User.active = false`) are rejected at login with a clear error message.
+- **Frontend role check:** `ProtectedRoute` checks `user.role === 'ADMIN'` (not `'ROLE_ADMIN'`).
 
 ### REST API Contract
 | Method | Path | Auth | Description |
@@ -99,15 +105,24 @@ Booking-Appointment/
 | POST   | `/api/auth/logout`     | Any    | Clear cookie |
 | GET    | `/api/courts`          | Public | List active courts |
 | GET    | `/api/courts/{id}`     | Public | Single court |
-| GET    | `/api/courts/{id}/availability?date=YYYY-MM-DD` | Public | Booked slots for a date |
+| GET    | `/api/courts/{id}/availability?date=YYYY-MM-DD&courtNumber=N` | Public | Booked slots for specific playable court on a date |
+| GET    | `/api/courts/{id}/courts-status?date=YYYY-MM-DD` | Public | Per-playable-court booking density for a date |
 | GET    | `/api/bookings`        | User   | My bookings |
 | POST   | `/api/bookings`        | User   | Create booking |
 | GET    | `/api/bookings/{id}`   | User   | Booking detail |
 | DELETE | `/api/bookings/{id}/cancel` | User | Cancel booking |
-| GET    | `/api/admin/bookings`  | Admin  | All bookings |
-| GET    | `/api/admin/courts`    | Admin  | All courts |
-| POST   | `/api/admin/courts`    | Admin  | Add court |
-| DELETE | `/api/admin/courts/{id}` | Admin | Deactivate court |
+| GET    | `/api/admin/stats`            | Admin | Overview counts + revenue |
+| GET    | `/api/admin/courts`           | Admin | All courts (active + inactive) |
+| POST   | `/api/admin/courts`           | Admin | Add court |
+| PATCH  | `/api/admin/courts/{id}`      | Admin | Update court details |
+| PATCH  | `/api/admin/courts/{id}/deactivate` | Admin | Deactivate court |
+| PATCH  | `/api/admin/courts/{id}/reactivate` | Admin | Reactivate court |
+| GET    | `/api/admin/users`            | Admin | All users |
+| PATCH  | `/api/admin/users/{id}/role`  | Admin | Change role (PLAYER ↔ ADMIN) |
+| PATCH  | `/api/admin/users/{id}/disable` | Admin | Disable user account |
+| PATCH  | `/api/admin/users/{id}/enable`  | Admin | Enable user account |
+| GET    | `/api/admin/bookings`         | Admin | All bookings |
+| PATCH  | `/api/admin/bookings/{id}/cancel` | Admin | Cancel any booking |
 
 ### React / Frontend
 - Auth state lives in `AuthContext` — `login()`, `logout()`, `register()`, `user`, `loading`.
@@ -121,6 +136,12 @@ Booking-Appointment/
 - **Fonts:** `Bebas Neue` (hero display), `Inter` (all body) — loaded in `index.html`
 - Mobile breakpoints: `900px` (layout), `768px` (nav collapses to hamburger), `640px` (phone)
 - Avoid adding new utility classes; extend existing component-scoped selectors
+- **Currency:** Philippine Peso `₱` — used everywhere rates and totals are displayed
+- **Court type selector:** uses a two-button segment control (`.court-type-toggle`) — not a checkbox; buttons toggle `form.indoor` directly
+- **GCash QR:** stored as base64 `TEXT` in `Court.gcashQrCode`; backend body limit raised to 5 MB in `main.ts`; UI shows a dashed dropzone with a `+` circle when empty, and a 120×120 preview with Replace/Remove when set
+- **Phone input:** `.phone-input` is always full-width (not inside a `form-row`) so the flag select and number field have adequate space
+- **Playable courts:** `Court.totalCourts` controls how many individual courts (1–20) are under a location; `Booking.courtNumber` records which one was booked; conflict check scopes to `(courtId, courtNumber)` pair; `PlayableCourtGrid` renders SVG top-down court cards with Available/Busy/Full indicators
+- **Booking flow:** 3-step progressive disclosure — (1) select location + date, (2) `PlayableCourtGrid` appears, (3) `TimeSlotPicker` appears once a court is chosen; `courtNumber` is required in `POST /bookings`
 
 ---
 
@@ -131,9 +152,17 @@ Booking-Appointment/
 | dev         | PostgreSQL (Docker)    | `npm run db:migrate` in `backend/` |
 | prod        | PostgreSQL             | `prisma migrate deploy`         |
 
-- `User` 1→N `Booking`, `Court` 1→N `Booking`
+**Models:**
+- `User`: `id`, `username`, `email`, `passwordHash`, `role (PLAYER|ADMIN)`, `active`, `createdAt`
+- `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `active`, `createdAt`
+- `Booking`: `id`, `userId`, `courtId`, `courtNumber`, `startTime`, `endTime`, `status (CONFIRMED|CANCELLED)`, `createdAt`
+
+**Relations:** `User` 1→N `Booking`, `Court` 1→N `Booking`
+
+**Notes:**
 - Conflict detection: `bookings.service.ts` — overlapping time range query on `CONFIRMED` bookings
 - Schema changes: edit `prisma/schema.prisma`, then run `npm run db:migrate` from `backend/`
+- **View live data:** run `npx prisma studio` from `backend/` — opens a browser UI at http://localhost:5555
 
 ---
 
@@ -199,8 +228,13 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 - [ ] Email confirmation on booking (Nodemailer / SendGrid)
 - [ ] Payment integration (Stripe Checkout)
 - [x] Court availability time slot picker (custom, per-day view)
+- [x] Playable court selection grid (SVG top-down cards, Available/Busy/Full, per-court booking)
 - [ ] Court availability full calendar view (FullCalendar, multi-day)
-- [ ] Admin booking override / reschedule
+- [x] Admin court management — add, edit, deactivate, reactivate
+- [x] Admin user management — role toggle (PLAYER ↔ ADMIN), enable/disable accounts
+- [x] Admin booking management — view all, cancel any booking
+- [x] Admin overview stats — courts, users, bookings, revenue
+- [ ] Admin booking reschedule (move booking to a new time slot)
 - [ ] Waitlist / notification when cancelled slot opens
 - [ ] User profile & password change page
 - [ ] Recurring weekly bookings
@@ -231,4 +265,4 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 
 ---
 
-*Last updated: 2026-05-06*
+*Last updated: 2026-05-07 (r4)*

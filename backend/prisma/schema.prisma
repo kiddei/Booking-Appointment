@@ -13,35 +13,42 @@ model User {
   email        String    @unique
   passwordHash String
   role         Role      @default(PLAYER)
+  active       Boolean   @default(true)
   bookings     Booking[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
 
 model Court {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  indoor      Boolean   @default(false)
-  maxPlayers  Int       @default(4)
-  hourlyRate  Float     @default(25.0)
-  active      Boolean   @default(true)
-  bookings    Booking[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String?
+  location      String?
+  ownerName     String?
+  contactNumber String?
+  gcashQrCode   String?
+  indoor        Boolean   @default(false)
+  totalCourts   Int       @default(1)
+  maxPlayers    Int       @default(4)
+  hourlyRate    Float     @default(25.0)
+  active        Boolean   @default(true)
+  bookings      Booking[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Booking {
-  id        Int           @id @default(autoincrement())
-  user      User          @relation(fields: [userId], references: [id])
-  userId    Int
-  court     Court         @relation(fields: [courtId], references: [id])
-  courtId   Int
-  startTime DateTime
-  endTime   DateTime
-  status    BookingStatus @default(CONFIRMED)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id          Int           @id @default(autoincrement())
+  user        User          @relation(fields: [userId], references: [id])
+  userId      Int
+  court       Court         @relation(fields: [courtId], references: [id])
+  courtId     Int
+  courtNumber Int           @default(1)
+  startTime   DateTime
+  endTime     DateTime
+  status      BookingStatus @default(CONFIRMED)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 enum Role {
