@@ -12,11 +12,12 @@ export class AdminService {
   // ── Stats ────────────────────────────────────────────────
 
   async getStats() {
-    const [totalCourts, activeCourts, totalUsers, totalBookings, revenue] = await Promise.all([
+    const [totalCourts, activeCourts, totalUsers, totalBookings, pendingBookings, revenue] = await Promise.all([
       this.prisma.court.count(),
       this.prisma.court.count({ where: { active: true } }),
       this.prisma.user.count(),
       this.prisma.booking.count({ where: { status: 'CONFIRMED' } }),
+      this.prisma.booking.count({ where: { status: 'PENDING' } }),
       this.prisma.booking.findMany({
         where: { status: 'CONFIRMED' },
         include: { court: { select: { hourlyRate: true } } },
@@ -28,7 +29,7 @@ export class AdminService {
       return sum + hours * b.court.hourlyRate
     }, 0)
 
-    return { totalCourts, activeCourts, totalUsers, totalBookings, totalRevenue: totalRevenue.toFixed(2) }
+    return { totalCourts, activeCourts, totalUsers, totalBookings, pendingBookings, totalRevenue: totalRevenue.toFixed(2) }
   }
 
   // ── Courts ───────────────────────────────────────────────
@@ -88,14 +89,61 @@ export class AdminService {
     return rows.map(this.formatBooking)
   }
 
+  async findPendingBookings() {
+    const rows = await this.prisma.booking.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        user:  { select: { id: true, username: true, email: true } },
+        court: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    return rows.map(this.formatBooking)
+  }
+
+  async confirmBooking(id: number) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        court: true,
+        user:  { select: { id: true, username: true, email: true } },
+      },
+    })
+    if (!booking) throw new NotFoundException('Booking not found')
+    if (booking.status === 'CONFIRMED') throw new BadRequestException('Booking is already confirmed')
+    if (booking.status === 'CANCELLED') throw new BadRequestException('Cannot confirm a cancelled booking')
+
+    const updated = await this.prisma.booking.update({
+      where: { id },
+      data: { status: 'CONFIRMED' },
+      include: {
+        court: true,
+        user:  { select: { id: true, username: true, email: true } },
+      },
+    })
+    return this.formatBooking(updated)
+  }
+
   async cancelBooking(id: number) {
-    const booking = await this.prisma.booking.findUnique({ where: { id }, include: { court: true } })
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        court: true,
+        user:  { select: { id: true, username: true, email: true } },
+      },
+    })
     if (!booking) throw new NotFoundException('Booking not found')
     if (booking.status === 'CANCELLED') throw new BadRequestException('Booking already cancelled')
+
     const updated = await this.prisma.booking.update({
-      where: { id }, data: { status: 'CANCELLED' }, include: { court: true },
+      where: { id },
+      data: { status: 'CANCELLED' },
+      include: {
+        court: true,
+        user:  { select: { id: true, username: true, email: true } },
+      },
     })
-    return this.formatBooking({ ...updated, user: (booking as any).user })
+    return this.formatBooking(updated)
   }
 
   // ── Helpers ──────────────────────────────────────────────
@@ -118,19 +166,21 @@ export class AdminService {
     const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
     const pad   = (n: number) => String(n).padStart(2, '0')
     return {
-      id:          booking.id,
-      status:      booking.status,
-      bookingDate: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
-      startTime:   `${pad(start.getHours())}:${pad(start.getMinutes())}`,
-      endTime:     `${pad(end.getHours())}:${pad(end.getMinutes())}`,
-      totalAmount: (hours * booking.court.hourlyRate).toFixed(2),
-      courtName:   booking.court.name,
-      courtIndoor: booking.court.indoor,
-      username:    booking.user?.username ?? '—',
-      userEmail:   booking.user?.email ?? '—',
-      userId:      booking.userId,
-      courtId:     booking.courtId,
-      createdAt:   booking.createdAt,
+      id:             booking.id,
+      status:         booking.status,
+      bookingDate:    `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+      startTime:      `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+      endTime:        `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+      totalAmount:    (hours * booking.court.hourlyRate).toFixed(2),
+      courtName:      booking.court.name,
+      courtIndoor:    booking.court.indoor,
+      courtNumber:    booking.courtNumber,
+      paymentReceipt: booking.paymentReceipt ?? null,
+      username:       booking.user?.username ?? '—',
+      userEmail:      booking.user?.email    ?? '—',
+      userId:         booking.userId,
+      courtId:        booking.courtId,
+      createdAt:      booking.createdAt,
     }
   }
 }

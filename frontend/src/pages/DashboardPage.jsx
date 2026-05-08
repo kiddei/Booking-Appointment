@@ -31,7 +31,8 @@ export default function DashboardPage() {
     }
   }
 
-  const upcoming   = bookings.filter(b => b.status === 'CONFIRMED').length
+  const upcoming   = bookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length
+  const pending    = bookings.filter(b => b.status === 'PENDING').length
   const cancelled  = bookings.filter(b => b.status === 'CANCELLED').length
   const totalSpent = bookings
     .filter(b => b.status !== 'CANCELLED')
@@ -56,9 +57,9 @@ export default function DashboardPage() {
               <div className="stat-card__sub">all time</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card__label">Upcoming</div>
+              <div className="stat-card__label">Active</div>
               <div className="stat-card__value">{upcoming}</div>
-              <div className="stat-card__sub">confirmed sessions</div>
+              <div className="stat-card__sub">{pending > 0 ? `${pending} awaiting payment` : 'confirmed sessions'}</div>
             </div>
             <div className="stat-card">
               <div className="stat-card__label">Total Spent</div>
@@ -108,6 +109,11 @@ export default function DashboardPage() {
                         <td style={{ color: 'var(--text)', fontWeight: 600 }}>₱{Number(b.totalAmount).toFixed(2)}</td>
                         <td><StatusBadge status={b.status} /></td>
                         <td onClick={e => e.stopPropagation()}>
+                          {b.status === 'PENDING' && (
+                            <Link to={`/bookings/${b.id}`} className="btn btn-neon" style={{ fontSize: 12, padding: '5px 10px' }}>
+                              Pay Now
+                            </Link>
+                          )}
                           {b.status === 'CONFIRMED' && (
                             <button
                               className="btn btn-danger"

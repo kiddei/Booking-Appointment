@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateBookingDto } from './dto/create-booking.dto'
+import { SubmitReceiptDto } from './dto/submit-receipt.dto'
 
 @Injectable()
 export class BookingsService {
@@ -38,11 +39,12 @@ export class BookingsService {
     if (start < new Date())
       throw new BadRequestException('Cannot book a slot in the past')
 
+    // Block slots that are PENDING or CONFIRMED — avoids double-booking
     const conflict = await this.prisma.booking.findFirst({
       where: {
         courtId: dto.courtId,
         courtNumber: dto.courtNumber,
-        status: 'CONFIRMED',
+        status: { in: ['CONFIRMED', 'PENDING'] },
         AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
       },
     })
@@ -53,6 +55,24 @@ export class BookingsService {
       include: { court: true },
     })
     return this.format(booking)
+  }
+
+  async submitReceipt(id: number, dto: SubmitReceiptDto, userId: number) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: { court: true },
+    })
+    if (!booking) throw new NotFoundException('Booking not found')
+    if (booking.userId !== userId) throw new ForbiddenException()
+    if (booking.status !== 'PENDING')
+      throw new BadRequestException('Only pending bookings can have a receipt submitted')
+
+    const updated = await this.prisma.booking.update({
+      where: { id },
+      data: { paymentReceipt: dto.paymentReceipt },
+      include: { court: true },
+    })
+    return this.format(updated)
   }
 
   async cancel(id: number, userId: number) {
@@ -79,19 +99,20 @@ export class BookingsService {
     const pad   = (n: number) => String(n).padStart(2, '0')
 
     return {
-      id:          booking.id,
-      status:      booking.status,
-      bookingDate: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
-      startTime:   `${pad(start.getHours())}:${pad(start.getMinutes())}`,
-      endTime:     `${pad(end.getHours())}:${pad(end.getMinutes())}`,
-      totalAmount: (hours * booking.court.hourlyRate).toFixed(2),
-      courtName:   booking.court.name,
-      courtIndoor: booking.court.indoor,
-      courtNumber: booking.courtNumber,
-      court:       booking.court,
-      createdAt:   booking.createdAt,
-      userId:      booking.userId,
-      courtId:     booking.courtId,
+      id:             booking.id,
+      status:         booking.status,
+      bookingDate:    `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+      startTime:      `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+      endTime:        `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+      totalAmount:    (hours * booking.court.hourlyRate).toFixed(2),
+      courtName:      booking.court.name,
+      courtIndoor:    booking.court.indoor,
+      courtNumber:    booking.courtNumber,
+      paymentReceipt: booking.paymentReceipt ?? null,
+      court:          booking.court,
+      createdAt:      booking.createdAt,
+      userId:         booking.userId,
+      courtId:        booking.courtId,
     }
   }
 }

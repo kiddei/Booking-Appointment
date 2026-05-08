@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, UseGuards,
+  Controller, Get, Post, Patch, Body, Param, ParseIntPipe, UseGuards,
 } from '@nestjs/common'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { RolesGuard } from '../auth/guards/roles.guard'
@@ -78,6 +78,16 @@ export class AdminController {
   @Get('bookings')
   getAllBookings() {
     return this.admin.findAllBookings()
+  }
+
+  @Get('bookings/pending')
+  getPendingBookings() {
+    return this.admin.findPendingBookings()
+  }
+
+  @Patch('bookings/:id/confirm')
+  confirmBooking(@Param('id', ParseIntPipe) id: number) {
+    return this.admin.confirmBooking(id)
   }
 
   @Patch('bookings/:id/cancel')
