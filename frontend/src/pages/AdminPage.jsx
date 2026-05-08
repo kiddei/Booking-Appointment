@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import client from '../api/client'
 
 /* ── Country dial-code list (Philippines default) ─────── */
@@ -43,13 +43,19 @@ export default function AdminPage() {
       <div className="admin-page">
         <div className="container">
           <div className="admin-tabs">
-            {['overview', 'courts', 'users', 'bookings'].map(t => (
+            {[
+              { key: 'overview',  label: 'Overview'  },
+              { key: 'courts',    label: 'Courts'    },
+              { key: 'users',     label: 'Users'     },
+              { key: 'bookings',  label: 'Bookings'  },
+              { key: 'payments',  label: 'Payments'  },
+            ].map(({ key, label }) => (
               <button
-                key={t}
-                className={`admin-tab${tab === t ? ' active' : ''}`}
-                onClick={() => setTab(t)}
+                key={key}
+                className={`admin-tab${tab === key ? ' active' : ''}`}
+                onClick={() => setTab(key)}
               >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {label}
               </button>
             ))}
           </div>
@@ -58,6 +64,7 @@ export default function AdminPage() {
           {tab === 'courts'    && <CourtsTab />}
           {tab === 'users'     && <UsersTab />}
           {tab === 'bookings'  && <BookingsTab />}
+          {tab === 'payments'  && <PaymentsTab />}
         </div>
       </div>
     </>
@@ -83,7 +90,7 @@ function OverviewTab() {
     <div className="admin-stats-grid">
       <StatCard label="Total Courts"      value={stats.totalCourts}  sub={`${stats.activeCourts} active`} />
       <StatCard label="Registered Users"  value={stats.totalUsers} />
-      <StatCard label="Confirmed Bookings" value={stats.totalBookings} />
+      <StatCard label="Confirmed Bookings" value={stats.totalBookings} sub={stats.pendingBookings > 0 ? `${stats.pendingBookings} pending` : undefined} />
       <StatCard
         label="Total Revenue"
         value={`₱${Number(stats.totalRevenue).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`}
@@ -528,6 +535,9 @@ function UsersTab() {
 function BookingsTab() {
   const [bookings, setBookings] = useState([])
   const [loading,  setLoading]  = useState(true)
+  const [search,   setSearch]   = useState('')
+  const [sortKey,  setSortKey]  = useState('createdAt')
+  const [sortDir,  setSortDir]  = useState('desc')
 
   useEffect(() => {
     client.get('/admin/bookings')
@@ -546,44 +556,98 @@ function BookingsTab() {
     }
   }
 
+  const toggleSort = key => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return bookings
+      .filter(b => !q ||
+        String(b.id).includes(q) ||
+        b.username.toLowerCase().includes(q) ||
+        b.userEmail.toLowerCase().includes(q) ||
+        b.courtName.toLowerCase().includes(q) ||
+        b.status.toLowerCase().includes(q)
+      )
+      .sort((a, b) => {
+        let va = a[sortKey], vb = b[sortKey]
+        if (sortKey === 'totalAmount') { va = Number(va); vb = Number(vb) }
+        if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+        return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
+      })
+  }, [bookings, search, sortKey, sortDir])
+
+  const SortTh = ({ label, k }) => (
+    <th className={`sortable${sortKey === k ? ` ${sortDir}` : ''}`} onClick={() => toggleSort(k)}>
+      {label}<span className="sort-arrow">{sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ↕'}</span>
+    </th>
+  )
+
   return (
     <div className="table-card">
+      <div className="table-toolbar">
+        <input
+          className="table-search"
+          placeholder="Search by ID, user, court or status…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {search && (
+          <button className="btn btn-outline" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => setSearch('')}>
+            Clear
+          </button>
+        )}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>
+          {filtered.length} of {bookings.length}
+        </span>
+      </div>
+
       {loading ? (
         <div className="page-loading"><div className="loading-spinner" /></div>
-      ) : bookings.length === 0 ? (
-        <div className="empty-state"><h3>No bookings yet.</h3></div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state"><h3>{search ? 'No results found.' : 'No bookings yet.'}</h3></div>
       ) : (
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
-                <th>#</th>
-                <th>User</th>
+                <SortTh label="#"      k="id" />
+                <SortTh label="User"   k="username" />
                 <th>Court</th>
-                <th>Date</th>
+                <SortTh label="Date"   k="bookingDate" />
                 <th>Time</th>
-                <th>Amount</th>
-                <th>Status</th>
+                <SortTh label="Amount" k="totalAmount" />
+                <SortTh label="Status" k="status" />
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {bookings.map(b => (
+              {filtered.map(b => (
                 <tr key={b.id}>
                   <td className="td-muted">{b.id}</td>
                   <td>
                     <span className="td-primary">{b.username}</span>
                     <span className="td-sub">{b.userEmail}</span>
                   </td>
-                  <td className="td-primary">{b.courtName}</td>
+                  <td>
+                    <span className="td-primary">{b.courtName}</span>
+                    {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
+                  </td>
                   <td className="td-muted">{formatDate(b.bookingDate)}</td>
                   <td className="td-muted">{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
                   <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
                   <td><StatusBadge status={b.status} /></td>
                   <td>
-                    {b.status === 'CONFIRMED' && (
-                      <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
-                    )}
+                    <div className="td-actions">
+                      {b.status === 'PENDING' && (
+                        <button className="btn-icon btn-icon--success" onClick={() => handleConfirm(b.id, setBookings)} title="Confirm booking">✓</button>
+                      )}
+                      {(b.status === 'CONFIRMED' || b.status === 'PENDING') && (
+                        <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -595,13 +659,153 @@ function BookingsTab() {
   )
 }
 
+/* ── Payments Tab ───────────────────────────────────────── */
+function PaymentsTab() {
+  const [bookings,      setBookings]      = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [receiptModal,  setReceiptModal]  = useState(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    client.get('/admin/bookings/pending')
+      .then(r => setBookings(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleConfirmLocal = async (id) => {
+    if (!window.confirm('Confirm this booking?')) return
+    try {
+      await client.patch(`/admin/bookings/${id}/confirm`)
+      setBookings(bs => bs.filter(b => b.id !== id))
+    } catch {
+      alert('Could not confirm booking.')
+    }
+  }
+
+  const handleCancelLocal = async (id) => {
+    if (!window.confirm('Cancel this booking?')) return
+    try {
+      await client.patch(`/admin/bookings/${id}/cancel`)
+      setBookings(bs => bs.filter(b => b.id !== id))
+    } catch {
+      alert('Could not cancel booking.')
+    }
+  }
+
+  return (
+    <>
+      <div className="table-card">
+        {loading ? (
+          <div className="page-loading"><div className="loading-spinner" /></div>
+        ) : bookings.length === 0 ? (
+          <div className="empty-state">
+            <h3>No pending payments.</h3>
+            <p>All bookings have been reviewed.</p>
+          </div>
+        ) : (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>User</th>
+                  <th>Court</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Receipt</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookings.map(b => (
+                  <tr key={b.id}>
+                    <td className="td-muted">{b.id}</td>
+                    <td>
+                      <span className="td-primary">{b.username}</span>
+                      <span className="td-sub">{b.userEmail}</span>
+                    </td>
+                    <td>
+                      <span className="td-primary">{b.courtName}</span>
+                      {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
+                    </td>
+                    <td className="td-muted">
+                      {formatDate(b.bookingDate)}
+                      <span className="td-sub">{formatTime(b.startTime)} – {formatTime(b.endTime)}</span>
+                    </td>
+                    <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
+                    <td>
+                      {b.paymentReceipt ? (
+                        <button
+                          className="btn btn-outline"
+                          style={{ fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}
+                          onClick={() => setReceiptModal(b.paymentReceipt)}
+                          title="View receipt"
+                        >
+                          <img src={b.paymentReceipt} alt="Receipt" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 3, background: '#fff' }} />
+                          View
+                        </button>
+                      ) : (
+                        <span style={{ color: 'var(--text-3)', fontSize: 12 }}>No receipt</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="td-actions">
+                        <button
+                          className="btn-icon btn-icon--success"
+                          onClick={() => handleConfirmLocal(b.id)}
+                          title="Confirm booking"
+                        >✓</button>
+                        <button
+                          className="btn-icon btn-icon--danger"
+                          onClick={() => handleCancelLocal(b.id)}
+                          title="Cancel booking"
+                        >✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {receiptModal && (
+        <div className="modal-overlay" onClick={() => setReceiptModal(null)}>
+          <div className="modal" style={{ maxWidth: 480, padding: 0, overflow: 'hidden' }}>
+            <div className="modal__header">
+              <h3>Payment Receipt</h3>
+              <button className="modal__close" onClick={() => setReceiptModal(null)}>×</button>
+            </div>
+            <img src={receiptModal} alt="Payment receipt" style={{ width: '100%', display: 'block', maxHeight: '70vh', objectFit: 'contain', background: '#fff' }} />
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 /* ── Shared helpers ─────────────────────────────────────── */
+
+async function handleConfirm(id, setBookings) {
+  if (!window.confirm('Confirm this booking?')) return
+  try {
+    const res = await client.patch(`/admin/bookings/${id}/confirm`)
+    setBookings(bs => bs.map(b => b.id === id ? res.data : b))
+  } catch {
+    alert('Could not confirm booking.')
+  }
+}
+
 function ActiveBadge({ active }) {
   return <span className={`badge ${active ? 'badge-confirmed' : 'badge-cancelled'}`}>{active ? 'Active' : 'Inactive'}</span>
 }
 
 function StatusBadge({ status }) {
-  const map = { CONFIRMED: 'badge-confirmed', CANCELLED: 'badge-cancelled' }
+  const map = { CONFIRMED: 'badge-confirmed', CANCELLED: 'badge-cancelled', PENDING: 'badge-pending' }
   return <span className={`badge ${map[status] || 'badge-pending'}`}>{status}</span>
 }
 

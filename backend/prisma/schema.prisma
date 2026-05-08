@@ -38,17 +38,18 @@ model Court {
 }
 
 model Booking {
-  id          Int           @id @default(autoincrement())
-  user        User          @relation(fields: [userId], references: [id])
-  userId      Int
-  court       Court         @relation(fields: [courtId], references: [id])
-  courtId     Int
-  courtNumber Int           @default(1)
-  startTime   DateTime
-  endTime     DateTime
-  status      BookingStatus @default(CONFIRMED)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             Int           @id @default(autoincrement())
+  user           User          @relation(fields: [userId], references: [id])
+  userId         Int
+  court          Court         @relation(fields: [courtId], references: [id])
+  courtId        Int
+  courtNumber    Int           @default(1)
+  startTime      DateTime
+  endTime        DateTime
+  status         BookingStatus @default(PENDING)
+  paymentReceipt String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 enum Role {
@@ -57,6 +58,7 @@ enum Role {
 }
 
 enum BookingStatus {
+  PENDING
   CONFIRMED
   CANCELLED
 }

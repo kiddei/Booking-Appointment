@@ -38,7 +38,7 @@ export class CourtsService {
       where: {
         courtId: id,
         courtNumber,
-        status: 'CONFIRMED',
+        status: { in: ['CONFIRMED', 'PENDING'] },
         startTime: { lt: dayEnd },
         endTime:   { gt: dayStart },
       },
@@ -61,7 +61,7 @@ export class CourtsService {
     const bookings = await this.prisma.booking.findMany({
       where: {
         courtId: id,
-        status: 'CONFIRMED',
+        status: { in: ['CONFIRMED', 'PENDING'] },
         startTime: { lt: dayEnd },
         endTime:   { gt: dayStart },
       },

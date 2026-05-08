@@ -110,6 +110,7 @@ Booking-Appointment/
 | GET    | `/api/bookings`        | User   | My bookings |
 | POST   | `/api/bookings`        | User   | Create booking |
 | GET    | `/api/bookings/{id}`   | User   | Booking detail |
+| PATCH  | `/api/bookings/{id}/receipt` | User | Upload payment receipt (base64) |
 | DELETE | `/api/bookings/{id}/cancel` | User | Cancel booking |
 | GET    | `/api/admin/stats`            | Admin | Overview counts + revenue |
 | GET    | `/api/admin/courts`           | Admin | All courts (active + inactive) |
@@ -122,6 +123,8 @@ Booking-Appointment/
 | PATCH  | `/api/admin/users/{id}/disable` | Admin | Disable user account |
 | PATCH  | `/api/admin/users/{id}/enable`  | Admin | Enable user account |
 | GET    | `/api/admin/bookings`         | Admin | All bookings |
+| GET    | `/api/admin/bookings/pending` | Admin | Pending bookings awaiting payment review |
+| PATCH  | `/api/admin/bookings/{id}/confirm` | Admin | Confirm a pending booking |
 | PATCH  | `/api/admin/bookings/{id}/cancel` | Admin | Cancel any booking |
 
 ### React / Frontend
@@ -142,6 +145,8 @@ Booking-Appointment/
 - **Phone input:** `.phone-input` is always full-width (not inside a `form-row`) so the flag select and number field have adequate space
 - **Playable courts:** `Court.totalCourts` controls how many individual courts (1–20) are under a location; `Booking.courtNumber` records which one was booked; conflict check scopes to `(courtId, courtNumber)` pair; `PlayableCourtGrid` renders SVG top-down court cards with Available/Busy/Full indicators
 - **Booking flow:** 3-step progressive disclosure — (1) select location + date, (2) `PlayableCourtGrid` appears, (3) `TimeSlotPicker` appears once a court is chosen; `courtNumber` is required in `POST /bookings`
+- **Payment flow:** New bookings default to `PENDING`; user sees GCash QR + receipt upload on BookingDetailPage; after upload shows "Under Review"; admin confirms via Payments tab → status → `CONFIRMED`
+- **Conflict detection:** blocks both `PENDING` and `CONFIRMED` bookings to prevent double-booking before payment
 
 ---
 
@@ -155,7 +160,7 @@ Booking-Appointment/
 **Models:**
 - `User`: `id`, `username`, `email`, `passwordHash`, `role (PLAYER|ADMIN)`, `active`, `createdAt`
 - `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `active`, `createdAt`
-- `Booking`: `id`, `userId`, `courtId`, `courtNumber`, `startTime`, `endTime`, `status (CONFIRMED|CANCELLED)`, `createdAt`
+- `Booking`: `id`, `userId`, `courtId`, `courtNumber`, `startTime`, `endTime`, `status (PENDING|CONFIRMED|CANCELLED)`, `paymentReceipt String?`, `createdAt`
 
 **Relations:** `User` 1→N `Booking`, `Court` 1→N `Booking`
 
@@ -265,4 +270,4 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 
 ---
 
-*Last updated: 2026-05-07 (r4)*
+*Last updated: 2026-05-08 (r5)*
