@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+
+const PAGE_SIZE = 10
 import client from '../api/client'
 
 /* ── Country dial-code list (Philippines default) ─────── */
@@ -116,6 +118,7 @@ function CourtsTab() {
   const [loading,   setLoading]   = useState(true)
   const [showAdd,   setShowAdd]   = useState(false)
   const [editCourt, setEditCourt] = useState(null)
+  const [page,      setPage]      = useState(1)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -126,6 +129,9 @@ function CourtsTab() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const totalPages  = Math.ceil(courts.length / PAGE_SIZE)
+  const pageCourts  = courts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleToggleActive = async (court) => {
     const action = court.active ? 'deactivate' : 'reactivate'
@@ -168,7 +174,7 @@ function CourtsTab() {
                 </tr>
               </thead>
               <tbody>
-                {courts.map(c => (
+                {pageCourts.map(c => (
                   <tr key={c.id} className={!c.active ? 'row-inactive' : ''}>
                     <td>
                       <span className="td-primary">{c.name}</span>
@@ -204,6 +210,7 @@ function CourtsTab() {
               </tbody>
             </table>
           </div>
+          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
         )}
       </div>
 
@@ -441,6 +448,7 @@ function CourtModal({ court, onClose, onSaved }) {
 function UsersTab() {
   const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
+  const [page,    setPage]    = useState(1)
 
   useEffect(() => {
     client.get('/admin/users')
@@ -472,6 +480,9 @@ function UsersTab() {
     }
   }
 
+  const totalPages = Math.ceil(users.length / PAGE_SIZE)
+  const pageUsers  = users.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   return (
     <div className="table-card">
       {loading ? (
@@ -479,6 +490,7 @@ function UsersTab() {
       ) : users.length === 0 ? (
         <div className="empty-state"><h3>No users found.</h3></div>
       ) : (
+        <>
         <div className="table-wrapper">
           <table>
             <thead>
@@ -493,7 +505,7 @@ function UsersTab() {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {pageUsers.map(u => (
                 <tr key={u.id} className={!u.active ? 'row-inactive' : ''}>
                   <td className="td-primary">{u.username}</td>
                   <td className="td-muted">{u.email}</td>
@@ -526,6 +538,8 @@ function UsersTab() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+        </>
       )}
     </div>
   )
@@ -538,6 +552,7 @@ function BookingsTab() {
   const [search,   setSearch]   = useState('')
   const [sortKey,  setSortKey]  = useState('createdAt')
   const [sortDir,  setSortDir]  = useState('desc')
+  const [page,     setPage]     = useState(1)
 
   useEffect(() => {
     client.get('/admin/bookings')
@@ -578,6 +593,11 @@ function BookingsTab() {
         return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
       })
   }, [bookings, search, sortKey, sortDir])
+
+  useEffect(() => { setPage(1) }, [search, sortKey, sortDir])
+
+  const totalPages   = Math.ceil(filtered.length / PAGE_SIZE)
+  const pageBookings = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const SortTh = ({ label, k }) => (
     <th className={`sortable${sortKey === k ? ` ${sortDir}` : ''}`} onClick={() => toggleSort(k)}>
@@ -624,7 +644,7 @@ function BookingsTab() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(b => (
+              {pageBookings.map(b => (
                 <tr key={b.id}>
                   <td className="td-muted">{b.id}</td>
                   <td>
@@ -654,6 +674,7 @@ function BookingsTab() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       )}
     </div>
   )
@@ -664,6 +685,7 @@ function PaymentsTab() {
   const [bookings,      setBookings]      = useState([])
   const [loading,       setLoading]       = useState(true)
   const [receiptModal,  setReceiptModal]  = useState(null)
+  const [page,          setPage]          = useState(1)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -674,6 +696,9 @@ function PaymentsTab() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const totalPages   = Math.ceil(bookings.length / PAGE_SIZE)
+  const pageBookings = bookings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleConfirmLocal = async (id) => {
     if (!window.confirm('Confirm this booking?')) return
@@ -720,7 +745,7 @@ function PaymentsTab() {
                 </tr>
               </thead>
               <tbody>
-                {bookings.map(b => (
+                {pageBookings.map(b => (
                   <tr key={b.id}>
                     <td className="td-muted">{b.id}</td>
                     <td>
@@ -770,6 +795,7 @@ function PaymentsTab() {
               </tbody>
             </table>
           </div>
+          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
         )}
       </div>
 
@@ -798,6 +824,17 @@ async function handleConfirm(id, setBookings) {
   } catch {
     alert('Could not confirm booking.')
   }
+}
+
+function Pagination({ page, setPage, totalPages }) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="pagination">
+      <button className="pagination__btn" onClick={() => setPage(p => p - 1)} disabled={page === 1}>← Prev</button>
+      <span className="pagination__info">{page} / {totalPages}</span>
+      <button className="pagination__btn" onClick={() => setPage(p => p + 1)} disabled={page === totalPages}>Next →</button>
+    </div>
+  )
 }
 
 function ActiveBadge({ active }) {

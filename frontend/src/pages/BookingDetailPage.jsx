@@ -131,9 +131,6 @@ export default function BookingDetailPage() {
                 </button>
               )}
 
-              <Link to="/bookings/new" className="btn btn-outline btn-block">
-                Book Another Court
-              </Link>
             </div>
 
           </div>
