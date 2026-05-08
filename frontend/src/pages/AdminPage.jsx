@@ -157,6 +157,7 @@ function CourtsTab() {
         ) : courts.length === 0 ? (
           <div className="empty-state"><h3>No courts yet.</h3><p>Add your first court.</p></div>
         ) : (
+          <>
           <div className="table-wrapper">
             <table>
               <thead>
@@ -211,6 +212,7 @@ function CourtsTab() {
             </table>
           </div>
           <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+          </>
         )}
       </div>
 
