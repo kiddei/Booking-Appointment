@@ -17,33 +17,43 @@ function toMinutes(hhmm) {
   return h * 60 + m
 }
 
-export default function TimeSlotPicker({ courtId, date, courtNumber = 1, startTime, endTime, onChange }) {
+// courtNumbers: array of selected court numbers
+export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], startTime, endTime, onChange }) {
   const [booked,  setBooked]  = useState([])
   const [loading, setLoading] = useState(false)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
 
-  useEffect(() => {
-    if (!courtId || !date) { setBooked([]); return }
-    setLoading(true)
-    client.get(`/courts/${courtId}/availability?date=${date}&courtNumber=${courtNumber}`)
-      .then(r => setBooked(r.data))
-      .catch(() => setBooked([]))
-      .finally(() => setLoading(false))
-  }, [courtId, date, courtNumber])
+  // Merge availability for all selected courts — a slot is blocked if ANY court is booked then
+  const courtKey = courtNumbers.slice().sort().join(',')
 
-  // Reset selection when court or date changes
+  useEffect(() => {
+    if (!courtId || !date || courtNumbers.length === 0) { setBooked([]); return }
+    setLoading(true)
+    Promise.all(
+      courtNumbers.map(n =>
+        client.get(`/courts/${courtId}/availability?date=${date}&courtNumber=${n}`)
+          .then(r => r.data)
+          .catch(() => [])
+      )
+    )
+      .then(results => {
+        // Union of all booked slots across all selected courts
+        setBooked(results.flat())
+      })
+      .finally(() => setLoading(false))
+  }, [courtId, date, courtKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset selection when court, date, or selected courts change
   useEffect(() => {
     onChangeRef.current({ startTime: '', endTime: '' })
-  }, [courtId, date])
+  }, [courtId, date, courtKey])
 
   const phase = !startTime ? 'start' : !endTime ? 'end' : 'done'
 
-  // Is hour H occupied by a confirmed booking?
   const isHourBooked = h =>
     booked.some(b => toMinutes(b.start) <= h * 60 && toMinutes(b.end) > h * 60)
 
-  // Max end hour reachable from startH without crossing a booking
   const maxEndHour = startH => {
     const nexts = booked.map(b => parseInt(b.start)).filter(h => h > startH)
     return nexts.length ? Math.min(...nexts) : CLOSE
@@ -69,14 +79,12 @@ export default function TimeSlotPicker({ courtId, date, courtNumber = 1, startTi
       return 'ts-slot ts-slot--blocked'
     }
 
-    // phase === 'start'
-    if (hour === CLOSE) return 'ts-slot ts-slot--no-start' // 10PM can only be an end time
+    if (hour === CLOSE) return 'ts-slot ts-slot--no-start'
     return 'ts-slot ts-slot--available'
   }
 
   const handleClick = ({ value, hour }) => {
     if (isHourBooked(hour)) return
-
     const startH = startTime ? parseInt(startTime) : null
 
     if (phase === 'start') {
@@ -87,7 +95,6 @@ export default function TimeSlotPicker({ courtId, date, courtNumber = 1, startTi
 
     if (phase === 'end' || phase === 'done') {
       if (hour <= (startH ?? -1)) {
-        // Clicked before or at start — restart selection
         if (hour !== CLOSE) onChange({ startTime: value, endTime: '' })
         return
       }
@@ -106,7 +113,7 @@ export default function TimeSlotPicker({ courtId, date, courtNumber = 1, startTi
     return `${fmt(startTime)} – ${fmt(endTime)}`
   }
 
-  if (!courtId || !date) {
+  if (!courtId || !date || courtNumbers.length === 0) {
     return (
       <div className="ts-placeholder">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

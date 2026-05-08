@@ -27,11 +27,11 @@ export default function BookingPage() {
 
   const [courts,  setCourts]  = useState([])
   const [form,    setForm]    = useState({
-    courtId:     preselectedCourt || '',
-    bookingDate: '',
-    courtNumber: null,
-    startTime:   '',
-    endTime:     '',
+    courtId:      preselectedCourt || '',
+    bookingDate:  '',
+    courtNumbers: [],   // array — supports multi-select
+    startTime:    '',
+    endTime:      '',
   })
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,10 +42,10 @@ export default function BookingPage() {
 
   const selectedCourt = courts.find(c => String(c.id) === String(form.courtId))
 
-  // Derived step for the indicator
-  const currentStep =
-    !form.courtId || !form.bookingDate ? 1 :
-    form.courtNumber === null           ? 2 : 3
+  const step1Done = Boolean(form.courtId && form.bookingDate)
+  const step2Done = form.courtNumbers.length > 0
+  const step3Done = Boolean(form.startTime && form.endTime)
+  const currentStep = !step1Done ? 1 : !step2Done ? 2 : 3
 
   const hours = useMemo(() => {
     if (!form.startTime || !form.endTime) return 0
@@ -54,53 +54,80 @@ export default function BookingPage() {
     return Math.max(0, eh - sh)
   }, [form.startTime, form.endTime])
 
-  const totalCost = selectedCourt ? (hours * selectedCourt.hourlyRate).toFixed(2) : '0.00'
+  const totalCost = selectedCourt
+    ? (hours * selectedCourt.hourlyRate * Math.max(1, form.courtNumbers.length)).toFixed(2)
+    : '0.00'
 
   const handleCourtChange = e => {
-    setForm(f => ({ ...f, courtId: e.target.value, courtNumber: null, startTime: '', endTime: '' }))
+    setForm(f => ({ ...f, courtId: e.target.value, courtNumbers: [], startTime: '', endTime: '' }))
   }
   const handleDateChange = date => {
-    setForm(f => ({ ...f, bookingDate: date, courtNumber: null, startTime: '', endTime: '' }))
+    setForm(f => ({ ...f, bookingDate: date, courtNumbers: [], startTime: '', endTime: '' }))
   }
-  const handleCourtSelect = n => {
-    setForm(f => ({ ...f, courtNumber: n, startTime: '', endTime: '' }))
+  // Toggle a court number in/out of the selection array
+  const handleCourtToggle = n => {
+    setForm(f => {
+      const already = f.courtNumbers.includes(n)
+      const courtNumbers = already
+        ? f.courtNumbers.filter(x => x !== n)
+        : [...f.courtNumbers, n]
+      return { ...f, courtNumbers, startTime: '', endTime: '' }
+    })
   }
 
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
-    if (!form.courtId)          { setError('Please select a court location.'); return }
-    if (!form.bookingDate)      { setError('Please choose a date.');           return }
-    if (form.courtNumber === null) { setError('Please select a court.');       return }
-    if (!form.startTime)        { setError('Please select a start time.');     return }
-    if (!form.endTime)          { setError('Please select an end time.');      return }
+    if (!form.courtId)              { setError('Please select a court location.'); return }
+    if (!form.bookingDate)          { setError('Please choose a date.');           return }
+    if (form.courtNumbers.length === 0) { setError('Please select at least one court.'); return }
+    if (!form.startTime)            { setError('Please select a start time.');     return }
+    if (!form.endTime)              { setError('Please select an end time.');      return }
+
     setLoading(true)
     try {
-      const res = await client.post('/bookings', {
-        courtId:     Number(form.courtId),
-        courtNumber: form.courtNumber,
-        bookingDate: form.bookingDate,
-        startTime:   form.startTime,
-        endTime:     form.endTime,
-      })
-      navigate(`/bookings/${res.data.id}`)
+      const results = await Promise.allSettled(
+        form.courtNumbers.map(n =>
+          client.post('/bookings', {
+            courtId:     Number(form.courtId),
+            courtNumber: n,
+            bookingDate: form.bookingDate,
+            startTime:   form.startTime,
+            endTime:     form.endTime,
+          })
+        )
+      )
+
+      const failed = results.filter(r => r.status === 'rejected')
+      if (failed.length === results.length) {
+        // All failed
+        const msg = failed[0].reason?.message || 'Could not create bookings. The slots may already be taken.'
+        setError(msg)
+        return
+      }
+      if (failed.length > 0) {
+        setError(`${failed.length} court(s) could not be booked — the slots may already be taken. Successful bookings are on your dashboard.`)
+      }
+      navigate('/dashboard')
     } catch (err) {
-      setError(err.message || 'Could not create booking. The slot may already be taken.')
+      setError(err.message || 'Could not create booking.')
     } finally {
       setLoading(false)
     }
   }
 
-  const step1Done = Boolean(form.courtId && form.bookingDate)
-  const step2Done = form.courtNumber !== null
-  const step3Done = Boolean(form.startTime && form.endTime)
+  const courtLabel = form.courtNumbers.length === 0
+    ? '—'
+    : form.courtNumbers.length === 1
+    ? `Court ${form.courtNumbers[0]}`
+    : `Courts ${form.courtNumbers.slice().sort((a, b) => a - b).join(', ')}`
 
   return (
     <>
       <div className="page-header">
         <div className="container">
           <h1>New Booking</h1>
-          <p>Pick a location, choose your court, then select a time — confirmation is instant.</p>
+          <p>Pick a location, choose your court(s), then select a time — confirmation is instant.</p>
         </div>
       </div>
 
@@ -124,7 +151,7 @@ export default function BookingPage() {
                   <div className="booking-step__line" />
                   <div className={`booking-step${currentStep === 2 ? ' active' : step2Done ? ' done' : ''}`}>
                     <span className="booking-step__dot">{step2Done ? '✓' : '2'}</span>
-                    <span className="booking-step__label">Select Court</span>
+                    <span className="booking-step__label">Select Court(s)</span>
                   </div>
                   <div className="booking-step__line" />
                   <div className={`booking-step${currentStep === 3 ? ' active' : step3Done ? ' done' : ''}`}>
@@ -177,13 +204,16 @@ export default function BookingPage() {
                     <div className="booking-section">
                       <div className="booking-section__header">
                         {step2Done && <span className="section-check">✓</span>}
-                        <span>Choose a Court</span>
+                        <span>Choose Court(s)</span>
                       </div>
+                      <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 10 }}>
+                        Tap to select one or more courts. A shared time slot will be booked for all.
+                      </p>
                       <PlayableCourtGrid
                         courtId={form.courtId}
                         date={form.bookingDate}
-                        selected={form.courtNumber}
-                        onSelect={handleCourtSelect}
+                        selected={form.courtNumbers}
+                        onSelect={handleCourtToggle}
                       />
                     </div>
                   )}
@@ -193,12 +223,12 @@ export default function BookingPage() {
                     <div className="booking-section">
                       <div className="booking-section__header">
                         {step3Done && <span className="section-check">✓</span>}
-                        <span>Select Time — Court {form.courtNumber}</span>
+                        <span>Select Time — {courtLabel}</span>
                       </div>
                       <TimeSlotPicker
                         courtId={form.courtId}
                         date={form.bookingDate}
-                        courtNumber={form.courtNumber}
+                        courtNumbers={form.courtNumbers}
                         startTime={form.startTime}
                         endTime={form.endTime}
                         onChange={({ startTime, endTime }) =>
@@ -209,13 +239,25 @@ export default function BookingPage() {
                   )}
 
                   {step1Done && step2Done && (
-                    <button
-                      type="submit"
-                      className="btn btn-neon btn-block btn-lg"
-                      disabled={loading || !step3Done}
-                    >
-                      {loading ? 'Confirming…' : 'Confirm Booking'}
-                    </button>
+                    <>
+                      <button
+                        type="submit"
+                        className="btn btn-neon btn-block btn-lg"
+                        disabled={loading || !step3Done}
+                      >
+                        {loading
+                          ? `Booking ${form.courtNumbers.length} court${form.courtNumbers.length !== 1 ? 's' : ''}…`
+                          : `Confirm ${form.courtNumbers.length > 1 ? `${form.courtNumbers.length} Courts` : 'Booking'}`}
+                      </button>
+
+                      <div className="booking-wait-note">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        Expect a <strong>5–10 minute</strong> wait for admin confirmation after submitting your payment receipt.
+                      </div>
+                    </>
                   )}
 
                 </form>
@@ -231,7 +273,7 @@ export default function BookingPage() {
                   <div className="court-preview-mini__name">{selectedCourt.name}</div>
                   <div className="court-preview-mini__meta">
                     {selectedCourt.indoor ? 'Indoor' : 'Outdoor'}
-                    {form.courtNumber !== null && ` · Court ${form.courtNumber}`}
+                    {form.courtNumbers.length > 0 && ` · ${courtLabel}`}
                   </div>
                 </div>
               ) : (
@@ -250,10 +292,10 @@ export default function BookingPage() {
                   <span>{fmtDate(form.bookingDate)}</span>
                 </div>
               )}
-              {form.courtNumber !== null && (
+              {form.courtNumbers.length > 0 && (
                 <div className="cost-row">
-                  <span>Court</span>
-                  <span>Court {form.courtNumber}</span>
+                  <span>Courts</span>
+                  <span>{courtLabel}</span>
                 </div>
               )}
               <div className="cost-row">
@@ -266,13 +308,19 @@ export default function BookingPage() {
                   <span>{fmt(form.startTime)} – {fmt(form.endTime)}</span>
                 </div>
               )}
+              {form.courtNumbers.length > 1 && selectedCourt && hours > 0 && (
+                <div className="cost-row" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                  <span>× {form.courtNumbers.length} courts</span>
+                  <span>₱{(hours * selectedCourt.hourlyRate).toFixed(2)} each</span>
+                </div>
+              )}
               <div className="cost-row cost-row--total">
                 <span>Total</span>
                 <span className="cost-total-value">₱{totalCost}</span>
               </div>
 
               <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
-                Instant confirmation. Cancel anytime before your session.
+                Payment via GCash. Confirmation within 5–10 minutes of receipt upload.
               </p>
 
               <Link to="/courts" className="btn btn-outline btn-block" style={{ marginTop: 12 }}>
