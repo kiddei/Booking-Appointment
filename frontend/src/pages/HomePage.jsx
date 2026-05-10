@@ -64,16 +64,50 @@ export default function HomePage() {
       <section className="hero">
         <div className="hero-grid" aria-hidden="true">
           <svg viewBox="0 0 1440 700" preserveAspectRatio="xMidYMax slice">
-            <line x1="720" y1="300" x2="0"    y2="700" stroke="rgba(200,255,0,0.06)" strokeWidth="1"/>
-            <line x1="720" y1="300" x2="240"  y2="700" stroke="rgba(200,255,0,0.06)" strokeWidth="1"/>
-            <line x1="720" y1="300" x2="480"  y2="700" stroke="rgba(200,255,0,0.06)" strokeWidth="1"/>
-            <line x1="720" y1="300" x2="720"  y2="700" stroke="rgba(200,255,0,0.09)" strokeWidth="1.5"/>
-            <line x1="720" y1="300" x2="960"  y2="700" stroke="rgba(200,255,0,0.06)" strokeWidth="1"/>
-            <line x1="720" y1="300" x2="1200" y2="700" stroke="rgba(200,255,0,0.06)" strokeWidth="1"/>
-            <line x1="720" y1="300" x2="1440" y2="700" stroke="rgba(200,255,0,0.06)" strokeWidth="1"/>
-            <line x1="0" y1="420"  x2="1440" y2="420" stroke="rgba(200,255,0,0.04)" strokeWidth="1"/>
-            <line x1="0" y1="520"  x2="1440" y2="520" stroke="rgba(200,255,0,0.04)" strokeWidth="1"/>
-            <line x1="0" y1="370"  x2="1440" y2="370" stroke="rgba(200,255,0,0.10)" strokeWidth="2"/>
+            {/* ── Court surface polygons (perspective view, vanishing pt 720,300) ── */}
+            {/* Near-side main court — deep navy blue */}
+            <polygon points="240,700 1200,700 804,370 636,370" fill="rgba(15,65,140,0.38)"/>
+            {/* Kitchen / non-volley zone near side — slightly brighter blue */}
+            <polygon points="576,420 864,420 804,370 636,370" fill="rgba(8,88,155,0.28)"/>
+            {/* Left out-of-bounds border — dark green */}
+            <polygon points="0,700 240,700 636,370 594,370"   fill="rgba(20,105,60,0.22)"/>
+            {/* Right out-of-bounds border — dark green */}
+            <polygon points="1200,700 1440,700 846,370 804,370" fill="rgba(20,105,60,0.22)"/>
+            {/* Far-side court (recedes toward vanishing point) */}
+            <polygon points="636,370 804,370 744,320 696,320" fill="rgba(15,65,140,0.26)"/>
+            {/* Far-side left border */}
+            <polygon points="594,370 636,370 696,320 684,320" fill="rgba(20,105,60,0.16)"/>
+            {/* Far-side right border */}
+            <polygon points="804,370 846,370 756,320 744,320" fill="rgba(20,105,60,0.16)"/>
+
+            {/* ── Court lines ── */}
+            {/* Left sideline */}
+            <line x1="720" y1="300" x2="240"  y2="700" stroke="rgba(255,255,255,0.26)" strokeWidth="1.5"/>
+            {/* Right sideline */}
+            <line x1="720" y1="300" x2="1200" y2="700" stroke="rgba(255,255,255,0.26)" strokeWidth="1.5"/>
+            {/* Centerline (near side only — splits service boxes) */}
+            <line x1="720" y1="370" x2="720"  y2="700" stroke="rgba(255,255,255,0.14)" strokeWidth="1"/>
+            {/* Kitchen / NVZ boundary line */}
+            <line x1="576" y1="420" x2="864"  y2="420" stroke="rgba(255,255,255,0.18)" strokeWidth="1"/>
+            {/* Outer boundary lines — faint neon for atmosphere */}
+            <line x1="720" y1="300" x2="0"    y2="700" stroke="rgba(200,255,0,0.04)"   strokeWidth="1"/>
+            <line x1="720" y1="300" x2="1440" y2="700" stroke="rgba(200,255,0,0.04)"   strokeWidth="1"/>
+            {/* Depth atmosphere line */}
+            <line x1="0"   y1="520" x2="1440" y2="520" stroke="rgba(200,255,0,0.03)"   strokeWidth="1"/>
+
+            {/* ── Net ── */}
+            {/* Left post */}
+            <rect x="628" y="355" width="6" height="30" rx="1" fill="rgba(200,255,0,0.9)"/>
+            {/* Right post */}
+            <rect x="806" y="355" width="6" height="30" rx="1" fill="rgba(200,255,0,0.9)"/>
+            {/* Net top tape — bright white band */}
+            <line x1="630" y1="359" x2="810" y2="359" stroke="rgba(255,255,255,0.92)" strokeWidth="4"/>
+            {/* Net mesh body — dashed for texture */}
+            <line x1="630" y1="368" x2="810" y2="368" stroke="rgba(255,255,255,0.10)" strokeWidth="10" strokeDasharray="6,5"/>
+            {/* Center strap */}
+            <rect x="719" y="359" width="4" height="24" rx="1" fill="rgba(255,255,255,0.4)"/>
+            {/* Net bottom shadow */}
+            <line x1="630" y1="382" x2="810" y2="382" stroke="rgba(0,0,0,0.32)"        strokeWidth="1.5"/>
           </svg>
         </div>
 
@@ -261,5 +295,5 @@ const FEATURES = [
 const STEPS = [
   { title: 'Create Your Account', desc: 'Sign up in under a minute. No credit card required to browse.' },
   { title: 'Choose Court & Time', desc: 'Browse courts, pick a date, select your preferred time window.' },
-  { title: 'Confirm & Play',      desc: 'Submit and get instant confirmation. Show up and play.' },
+  { title: 'Pay & Play',      desc: 'Submit and get instant confirmation. Show up and play.' },
 ]

@@ -1,5 +1,6 @@
 import {
-  IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Max, Min,
+  IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString,
+  Matches, Max, Min,
 } from 'class-validator'
 
 export class CreateCourtDto {
@@ -8,20 +9,37 @@ export class CreateCourtDto {
   name: string
 
   @IsString()
+  @IsNotEmpty()
+  location: string
+
+  @IsString()
+  @IsNotEmpty()
+  ownerName: string
+
+  @IsString()
+  @IsNotEmpty()
+  contactNumber: string
+
+  @IsNumber()
+  @IsPositive()
+  hourlyRate: number
+
+  @IsNumber()
+  @Min(1)
+  @Max(20)
+  totalCourts: number
+
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/)
+  openTime: string
+
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/)
+  closeTime: string
+
+  @IsString()
   @IsOptional()
   description?: string
-
-  @IsString()
-  @IsOptional()
-  location?: string
-
-  @IsString()
-  @IsOptional()
-  ownerName?: string
-
-  @IsString()
-  @IsOptional()
-  contactNumber?: string
 
   @IsString()
   @IsOptional()
@@ -32,13 +50,6 @@ export class CreateCourtDto {
   indoor?: boolean
 
   @IsNumber()
-  @Min(1)
-  @Max(20)
   @IsOptional()
-  totalCourts?: number
-
-  @IsNumber()
-  @IsPositive()
-  @IsOptional()
-  hourlyRate?: number
+  maxPlayers?: number
 }

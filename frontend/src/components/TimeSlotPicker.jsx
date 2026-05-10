@@ -1,28 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import client from '../api/client'
 
-const OPEN  = 7   // 7 AM
-const CLOSE = 22  // 10 PM
-const pad   = n => String(n).padStart(2, '0')
-
-const ALL_TIMES = Array.from({ length: CLOSE - OPEN + 1 }, (_, i) => {
-  const h = OPEN + i
-  const label = h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`
-  return { value: `${pad(h)}:00`, label, hour: h }
-})
-// 16 entries: 07:00…22:00
+const pad = n => String(n).padStart(2, '0')
 
 function toMinutes(hhmm) {
   const [h, m] = hhmm.split(':').map(Number)
   return h * 60 + m
 }
 
+function makeSlots(openHour, closeHour) {
+  return Array.from({ length: closeHour - openHour + 1 }, (_, i) => {
+    const h = openHour + i
+    const label = h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`
+    return { value: `${pad(h)}:00`, label, hour: h }
+  })
+}
+
 // courtNumbers: array of selected court numbers
-export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], startTime, endTime, onChange }) {
+export default function TimeSlotPicker({
+  courtId, date, courtNumbers = [1], startTime, endTime, onChange,
+  openHour = 7, closeHour = 22,
+}) {
   const [booked,  setBooked]  = useState([])
   const [loading, setLoading] = useState(false)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+
+  const allTimes = makeSlots(openHour, closeHour)
 
   // Merge availability for all selected courts — a slot is blocked if ANY court is booked then
   const courtKey = courtNumbers.slice().sort().join(',')
@@ -38,7 +42,6 @@ export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], star
       )
     )
       .then(results => {
-        // Union of all booked slots across all selected courts
         setBooked(results.flat())
       })
       .finally(() => setLoading(false))
@@ -56,10 +59,10 @@ export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], star
 
   const maxEndHour = startH => {
     const nexts = booked.map(b => parseInt(b.start)).filter(h => h > startH)
-    return nexts.length ? Math.min(...nexts) : CLOSE
+    return nexts.length ? Math.min(...nexts) : closeHour
   }
 
-  const slotClass = ({ value, hour }) => {
+  const slotClass = ({ hour }) => {
     const startH = startTime ? parseInt(startTime) : null
     const endH   = endTime   ? parseInt(endTime)   : null
 
@@ -79,7 +82,7 @@ export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], star
       return 'ts-slot ts-slot--blocked'
     }
 
-    if (hour === CLOSE) return 'ts-slot ts-slot--no-start'
+    if (hour === closeHour) return 'ts-slot ts-slot--no-start'
     return 'ts-slot ts-slot--available'
   }
 
@@ -88,14 +91,14 @@ export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], star
     const startH = startTime ? parseInt(startTime) : null
 
     if (phase === 'start') {
-      if (hour === CLOSE) return
+      if (hour === closeHour) return
       onChange({ startTime: value, endTime: '' })
       return
     }
 
     if (phase === 'end' || phase === 'done') {
       if (hour <= (startH ?? -1)) {
-        if (hour !== CLOSE) onChange({ startTime: value, endTime: '' })
+        if (hour !== closeHour) onChange({ startTime: value, endTime: '' })
         return
       }
       if (hour > maxEndHour(startH)) return
@@ -143,13 +146,13 @@ export default function TimeSlotPicker({ courtId, date, courtNumbers = [1], star
         <div className="ts-loading"><div className="loading-spinner" /></div>
       ) : (
         <div className="ts-grid">
-          {ALL_TIMES.map(slot => (
+          {allTimes.map(slot => (
             <button
               key={slot.value}
               type="button"
               className={slotClass(slot)}
               onClick={() => handleClick(slot)}
-              disabled={isHourBooked(slot.hour) || (phase === 'start' && slot.hour === CLOSE)}
+              disabled={isHourBooked(slot.hour) || (phase === 'start' && slot.hour === closeHour)}
               title={isHourBooked(slot.hour) ? 'Already booked' : slot.label}
             >
               {slot.label}

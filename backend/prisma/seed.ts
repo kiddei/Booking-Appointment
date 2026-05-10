@@ -24,16 +24,19 @@ async function main() {
       name: 'PicklePro Indoor Complex', description: 'Climate-controlled indoor courts with pro-grade surfaces',
       location: '123 Pickle Ave, Makati City, Metro Manila', ownerName: 'PicklePro Management',
       contactNumber: '+63 917 100 0001', indoor: true, totalCourts: 4, maxPlayers: 4, hourlyRate: 300.0,
+      openTime: '07:00', closeTime: '22:00',
     },
     {
       name: 'PicklePro Outdoor Courts', description: 'Open-air hardcourts with floodlights for evening play',
       location: '456 Sports Drive, BGC, Taguig City', ownerName: 'PicklePro Management',
       contactNumber: '+63 917 100 0002', indoor: false, totalCourts: 6, maxPlayers: 4, hourlyRate: 200.0,
+      openTime: '06:00', closeTime: '21:00',
     },
     {
       name: 'PicklePro VIP Club', description: 'Premium courts with spectator seating and lounge access',
       location: '789 Elite Blvd, Bonifacio Global City, Taguig', ownerName: 'PicklePro Management',
       contactNumber: '+63 917 100 0003', indoor: true, totalCourts: 2, maxPlayers: 6, hourlyRate: 500.0,
+      openTime: '08:00', closeTime: '23:00',
     },
   ]
 
