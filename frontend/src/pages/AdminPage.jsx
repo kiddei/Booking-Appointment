@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import client from '../api/client'
 
 const PAGE_SIZE = 10
-import client from '../api/client'
 
 /* ── Country dial-code list (Philippines default) ─────── */
 const COUNTRIES = [
@@ -90,8 +90,8 @@ function OverviewTab() {
 
   return (
     <div className="admin-stats-grid">
-      <StatCard label="Total Courts"      value={stats.totalCourts}  sub={`${stats.activeCourts} active`} />
-      <StatCard label="Registered Users"  value={stats.totalUsers} />
+      <StatCard label="Total Courts"       value={stats.totalCourts}  sub={`${stats.activeCourts} active`} />
+      <StatCard label="Registered Users"   value={stats.totalUsers} />
       <StatCard label="Confirmed Bookings" value={stats.totalBookings} sub={stats.pendingBookings > 0 ? `${stats.pendingBookings} pending` : undefined} />
       <StatCard
         label="Total Revenue"
@@ -130,8 +130,8 @@ function CourtsTab() {
 
   useEffect(() => { load() }, [load])
 
-  const totalPages  = Math.ceil(courts.length / PAGE_SIZE)
-  const pageCourts  = courts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.ceil(courts.length / PAGE_SIZE)
+  const pageCourts = courts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleToggleActive = async (court) => {
     const action = court.active ? 'deactivate' : 'reactivate'
@@ -158,60 +158,60 @@ function CourtsTab() {
           <div className="empty-state"><h3>No courts yet.</h3><p>Add your first court.</p></div>
         ) : (
           <>
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Court</th>
-                  <th>Location</th>
-                  <th>Owner</th>
-                  <th>Contact</th>
-                  <th>Type</th>
-                  <th># Courts</th>
-                  <th>Rate/hr</th>
-                  <th>GCash</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageCourts.map(c => (
-                  <tr key={c.id} className={!c.active ? 'row-inactive' : ''}>
-                    <td>
-                      <span className="td-primary">{c.name}</span>
-                      {c.description && <span className="td-sub">{c.description}</span>}
-                    </td>
-                    <td className="td-muted">{c.location || '—'}</td>
-                    <td className="td-muted">{c.ownerName || '—'}</td>
-                    <td className="td-muted">{c.contactNumber || '—'}</td>
-                    <td><span className="court-card__badge">{c.indoor ? 'Indoor' : 'Outdoor'}</span></td>
-                    <td className="td-center">{c.totalCourts ?? 1}</td>
-                    <td className="td-accent">₱{Number(c.hourlyRate).toFixed(2)}</td>
-                    <td>
-                      {c.gcashQrCode
-                        ? <img src={c.gcashQrCode} alt="QR" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#fff', cursor: 'pointer' }} onClick={() => window.open(c.gcashQrCode)} title="View GCash QR" />
-                        : <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
-                      }
-                    </td>
-                    <td><ActiveBadge active={c.active} /></td>
-                    <td>
-                      <div className="td-actions">
-                        <button className="btn-icon btn-icon--edit" onClick={() => setEditCourt(c)} title="Edit">✎</button>
-                        <button
-                          className={`btn-icon ${c.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
-                          onClick={() => handleToggleActive(c)}
-                          title={c.active ? 'Deactivate' : 'Reactivate'}
-                        >
-                          {c.active ? '✕' : '✓'}
-                        </button>
-                      </div>
-                    </td>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Court</th>
+                    <th>Location</th>
+                    <th>Owner</th>
+                    <th>Contact</th>
+                    <th>Type</th>
+                    <th># Courts</th>
+                    <th>Rate/hr</th>
+                    <th>GCash</th>
+                    <th>Status</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+                </thead>
+                <tbody>
+                  {pageCourts.map(c => (
+                    <tr key={c.id} className={!c.active ? 'row-inactive' : ''}>
+                      <td>
+                        <span className="td-primary">{c.name}</span>
+                        {c.description && <span className="td-sub">{c.description}</span>}
+                      </td>
+                      <td className="td-muted">{c.location || '—'}</td>
+                      <td className="td-muted">{c.ownerName || '—'}</td>
+                      <td className="td-muted">{c.contactNumber || '—'}</td>
+                      <td><span className="court-card__badge">{c.indoor ? 'Indoor' : 'Outdoor'}</span></td>
+                      <td className="td-center">{c.totalCourts ?? 1}</td>
+                      <td className="td-accent">₱{Number(c.hourlyRate).toFixed(2)}</td>
+                      <td>
+                        {c.gcashQrCode
+                          ? <img src={c.gcashQrCode} alt="QR" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#fff', cursor: 'pointer' }} onClick={() => window.open(c.gcashQrCode)} title="View GCash QR" />
+                          : <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
+                        }
+                      </td>
+                      <td><ActiveBadge active={c.active} /></td>
+                      <td>
+                        <div className="td-actions">
+                          <button className="btn-icon btn-icon--edit" onClick={() => setEditCourt(c)} title="Edit">✎</button>
+                          <button
+                            className={`btn-icon ${c.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
+                            onClick={() => handleToggleActive(c)}
+                            title={c.active ? 'Deactivate' : 'Reactivate'}
+                          >
+                            {c.active ? '✕' : '✓'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
           </>
         )}
       </div>
@@ -306,19 +306,16 @@ function CourtModal({ court, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit}>
 
-          {/* Court name */}
           <div className="form-group">
             <label>Court Name *</label>
             <input name="name" type="text" placeholder="Court A" value={form.name} onChange={handleChange} required />
           </div>
 
-          {/* Description */}
           <div className="form-group">
             <label>Description</label>
             <textarea name="description" placeholder="Short description…" value={form.description} onChange={handleChange} rows={2} />
           </div>
 
-          {/* Location */}
           <div className="form-group">
             <label>Location</label>
             <textarea
@@ -330,7 +327,6 @@ function CourtModal({ court, onClose, onSaved }) {
             />
           </div>
 
-          {/* Owner name + Rate */}
           <div className="form-row">
             <div className="form-group">
               <label>Owner Name</label>
@@ -346,7 +342,6 @@ function CourtModal({ court, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Contact number — full width so the phone input has room */}
           <div className="form-group">
             <label>Contact Number</label>
             <div className="phone-input">
@@ -369,7 +364,6 @@ function CourtModal({ court, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Court type — segment control */}
           <div className="form-group">
             <label>Court Type</label>
             <div className="court-type-toggle">
@@ -390,7 +384,6 @@ function CourtModal({ court, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Number of playable courts */}
           <div className="form-group">
             <label>Number of Playable Courts</label>
             <input
@@ -401,7 +394,6 @@ function CourtModal({ court, onClose, onSaved }) {
             />
           </div>
 
-          {/* GCash QR — dashed dropzone */}
           <div className="form-group">
             <label>GCash QR Code</label>
             <input
@@ -493,54 +485,54 @@ function UsersTab() {
         <div className="empty-state"><h3>No users found.</h3></div>
       ) : (
         <>
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Bookings</th>
-                <th>Joined</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageUsers.map(u => (
-                <tr key={u.id} className={!u.active ? 'row-inactive' : ''}>
-                  <td className="td-primary">{u.username}</td>
-                  <td className="td-muted">{u.email}</td>
-                  <td>
-                    <span className={`role-badge role-badge--${u.role.toLowerCase()}`}>{u.role}</span>
-                  </td>
-                  <td className="td-center">{u._count?.bookings ?? 0}</td>
-                  <td className="td-muted">{formatDate(u.createdAt)}</td>
-                  <td><ActiveBadge active={u.active} /></td>
-                  <td>
-                    <div className="td-actions">
-                      <button
-                        className="btn-icon btn-icon--edit"
-                        onClick={() => handleRoleToggle(u)}
-                        title={u.role === 'ADMIN' ? 'Demote to Player' : 'Promote to Admin'}
-                      >
-                        ⇅
-                      </button>
-                      <button
-                        className={`btn-icon ${u.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
-                        onClick={() => handleToggleActive(u)}
-                        title={u.active ? 'Disable account' : 'Enable account'}
-                      >
-                        {u.active ? '✕' : '✓'}
-                      </button>
-                    </div>
-                  </td>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Bookings</th>
+                  <th>Joined</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+              </thead>
+              <tbody>
+                {pageUsers.map(u => (
+                  <tr key={u.id} className={!u.active ? 'row-inactive' : ''}>
+                    <td className="td-primary">{u.username}</td>
+                    <td className="td-muted">{u.email}</td>
+                    <td>
+                      <span className={`role-badge role-badge--${u.role.toLowerCase()}`}>{u.role}</span>
+                    </td>
+                    <td className="td-center">{u._count?.bookings ?? 0}</td>
+                    <td className="td-muted">{formatDate(u.createdAt)}</td>
+                    <td><ActiveBadge active={u.active} /></td>
+                    <td>
+                      <div className="td-actions">
+                        <button
+                          className="btn-icon btn-icon--edit"
+                          onClick={() => handleRoleToggle(u)}
+                          title={u.role === 'ADMIN' ? 'Demote to Player' : 'Promote to Admin'}
+                        >
+                          ⇅
+                        </button>
+                        <button
+                          className={`btn-icon ${u.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
+                          onClick={() => handleToggleActive(u)}
+                          title={u.active ? 'Disable account' : 'Enable account'}
+                        >
+                          {u.active ? '✕' : '✓'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
         </>
       )}
     </div>
@@ -631,52 +623,54 @@ function BookingsTab() {
       ) : filtered.length === 0 ? (
         <div className="empty-state"><h3>{search ? 'No results found.' : 'No bookings yet.'}</h3></div>
       ) : (
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <SortTh label="#"      k="id" />
-                <SortTh label="User"   k="username" />
-                <th>Court</th>
-                <SortTh label="Date"   k="bookingDate" />
-                <th>Time</th>
-                <SortTh label="Amount" k="totalAmount" />
-                <SortTh label="Status" k="status" />
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageBookings.map(b => (
-                <tr key={b.id}>
-                  <td className="td-muted">{b.id}</td>
-                  <td>
-                    <span className="td-primary">{b.username}</span>
-                    <span className="td-sub">{b.userEmail}</span>
-                  </td>
-                  <td>
-                    <span className="td-primary">{b.courtName}</span>
-                    {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
-                  </td>
-                  <td className="td-muted">{formatDate(b.bookingDate)}</td>
-                  <td className="td-muted">{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
-                  <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
-                  <td><StatusBadge status={b.status} /></td>
-                  <td>
-                    <div className="td-actions">
-                      {b.status === 'PENDING' && (
-                        <button className="btn-icon btn-icon--success" onClick={() => handleConfirm(b.id, setBookings)} title="Confirm booking">✓</button>
-                      )}
-                      {(b.status === 'CONFIRMED' || b.status === 'PENDING') && (
-                        <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
-                      )}
-                    </div>
-                  </td>
+        <>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <SortTh label="#"      k="id" />
+                  <SortTh label="User"   k="username" />
+                  <th>Court</th>
+                  <SortTh label="Date"   k="bookingDate" />
+                  <th>Time</th>
+                  <SortTh label="Amount" k="totalAmount" />
+                  <SortTh label="Status" k="status" />
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+              </thead>
+              <tbody>
+                {pageBookings.map(b => (
+                  <tr key={b.id}>
+                    <td className="td-muted">{b.id}</td>
+                    <td>
+                      <span className="td-primary">{b.username}</span>
+                      <span className="td-sub">{b.userEmail}</span>
+                    </td>
+                    <td>
+                      <span className="td-primary">{b.courtName}</span>
+                      {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
+                    </td>
+                    <td className="td-muted">{formatDate(b.bookingDate)}</td>
+                    <td className="td-muted">{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
+                    <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
+                    <td><StatusBadge status={b.status} /></td>
+                    <td>
+                      <div className="td-actions">
+                        {b.status === 'PENDING' && (
+                          <button className="btn-icon btn-icon--success" onClick={() => handleConfirm(b.id, setBookings)} title="Confirm booking">✓</button>
+                        )}
+                        {(b.status === 'CONFIRMED' || b.status === 'PENDING') && (
+                          <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+        </>
       )}
     </div>
   )
@@ -684,10 +678,10 @@ function BookingsTab() {
 
 /* ── Payments Tab ───────────────────────────────────────── */
 function PaymentsTab() {
-  const [bookings,      setBookings]      = useState([])
-  const [loading,       setLoading]       = useState(true)
-  const [receiptModal,  setReceiptModal]  = useState(null)
-  const [page,          setPage]          = useState(1)
+  const [bookings,     setBookings]     = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [receiptModal, setReceiptModal] = useState(null)
+  const [page,         setPage]         = useState(1)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -733,71 +727,73 @@ function PaymentsTab() {
             <p>All bookings have been reviewed.</p>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>User</th>
-                  <th>Court</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Receipt</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageBookings.map(b => (
-                  <tr key={b.id}>
-                    <td className="td-muted">{b.id}</td>
-                    <td>
-                      <span className="td-primary">{b.username}</span>
-                      <span className="td-sub">{b.userEmail}</span>
-                    </td>
-                    <td>
-                      <span className="td-primary">{b.courtName}</span>
-                      {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
-                    </td>
-                    <td className="td-muted">
-                      {formatDate(b.bookingDate)}
-                      <span className="td-sub">{formatTime(b.startTime)} – {formatTime(b.endTime)}</span>
-                    </td>
-                    <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
-                    <td>
-                      {b.paymentReceipt ? (
-                        <button
-                          className="btn btn-outline"
-                          style={{ fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}
-                          onClick={() => setReceiptModal(b.paymentReceipt)}
-                          title="View receipt"
-                        >
-                          <img src={b.paymentReceipt} alt="Receipt" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 3, background: '#fff' }} />
-                          View
-                        </button>
-                      ) : (
-                        <span style={{ color: 'var(--text-3)', fontSize: 12 }}>No receipt</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="td-actions">
-                        <button
-                          className="btn-icon btn-icon--success"
-                          onClick={() => handleConfirmLocal(b.id)}
-                          title="Confirm booking"
-                        >✓</button>
-                        <button
-                          className="btn-icon btn-icon--danger"
-                          onClick={() => handleCancelLocal(b.id)}
-                          title="Cancel booking"
-                        >✕</button>
-                      </div>
-                    </td>
+          <>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>User</th>
+                    <th>Court</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Receipt</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+                </thead>
+                <tbody>
+                  {pageBookings.map(b => (
+                    <tr key={b.id}>
+                      <td className="td-muted">{b.id}</td>
+                      <td>
+                        <span className="td-primary">{b.username}</span>
+                        <span className="td-sub">{b.userEmail}</span>
+                      </td>
+                      <td>
+                        <span className="td-primary">{b.courtName}</span>
+                        {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
+                      </td>
+                      <td className="td-muted">
+                        {formatDate(b.bookingDate)}
+                        <span className="td-sub">{formatTime(b.startTime)} – {formatTime(b.endTime)}</span>
+                      </td>
+                      <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
+                      <td>
+                        {b.paymentReceipt ? (
+                          <button
+                            className="btn btn-outline"
+                            style={{ fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}
+                            onClick={() => setReceiptModal(b.paymentReceipt)}
+                            title="View receipt"
+                          >
+                            <img src={b.paymentReceipt} alt="Receipt" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 3, background: '#fff' }} />
+                            View
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-3)', fontSize: 12 }}>No receipt</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="td-actions">
+                          <button
+                            className="btn-icon btn-icon--success"
+                            onClick={() => handleConfirmLocal(b.id)}
+                            title="Confirm booking"
+                          >✓</button>
+                          <button
+                            className="btn-icon btn-icon--danger"
+                            onClick={() => handleCancelLocal(b.id)}
+                            title="Cancel booking"
+                          >✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+          </>
         )}
       </div>
 
