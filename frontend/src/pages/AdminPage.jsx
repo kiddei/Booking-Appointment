@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react'
 import client from '../api/client'
 
 const PAGE_SIZE = 10
@@ -239,8 +239,15 @@ function CourtsTab() {
 /* ── Court Modal (Add / Edit) ───────────────────────────── */
 const EMPTY_COURT = {
   name: '', description: '', location: '', ownerName: '',
-  contactNumber: '', gcashQrCode: '', hourlyRate: '', indoor: false, totalCourts: 1,
+  contactNumber: '', gcashQrCode: '', hourlyRate: '', indoor: false,
+  totalCourts: 1, openTime: '07:00', closeTime: '22:00',
 }
+
+const HOUR_OPTIONS = Array.from({ length: 19 }, (_, i) => {
+  const h = i + 5
+  const label = h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`
+  return { value: `${String(h).padStart(2, '0')}:00`, label }
+})
 
 function CourtModal({ court, onClose, onSaved }) {
   const isEdit = Boolean(court)
@@ -256,6 +263,8 @@ function CourtModal({ court, onClose, onSaved }) {
     indoor:        court.indoor,
     totalCourts:   court.totalCourts   ?? 1,
     contactNumber: court.contactNumber ?? '',
+    openTime:      court.openTime      ?? '07:00',
+    closeTime:     court.closeTime     ?? '22:00',
   } : EMPTY_COURT)
   const [dialCode, setDialCode] = useState(initPhone.dial)
   const [phoneNum, setPhoneNum] = useState(initPhone.num)
@@ -279,10 +288,20 @@ function CourtModal({ court, onClose, onSaved }) {
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
+    if (!phoneNum.trim()) { setError('Contact number is required.'); return }
+    if (parseInt(form.closeTime) <= parseInt(form.openTime)) {
+      setError('Closing time must be later than opening time.')
+      return
+    }
     setLoading(true)
-    const contactNumber = phoneNum ? `${dialCode} ${phoneNum}` : ''
+    const contactNumber = `${dialCode} ${phoneNum.trim()}`
     try {
-      const payload = { ...form, contactNumber, hourlyRate: Number(form.hourlyRate), totalCourts: Number(form.totalCourts) }
+      const payload = {
+        ...form,
+        contactNumber,
+        hourlyRate:  Number(form.hourlyRate),
+        totalCourts: Number(form.totalCourts),
+      }
       const res = isEdit
         ? await client.patch(`/admin/courts/${court.id}`, payload)
         : await client.post('/admin/courts', payload)
@@ -317,20 +336,21 @@ function CourtModal({ court, onClose, onSaved }) {
           </div>
 
           <div className="form-group">
-            <label>Location</label>
+            <label>Location *</label>
             <textarea
               name="location"
               placeholder="Unit / Floor, Building Name, Street, City, Province"
               value={form.location}
               onChange={handleChange}
               rows={3}
+              required
             />
           </div>
 
           <div className="form-row">
             <div className="form-group">
-              <label>Owner Name</label>
-              <input name="ownerName" type="text" placeholder="Juan dela Cruz" value={form.ownerName} onChange={handleChange} />
+              <label>Owner Name *</label>
+              <input name="ownerName" type="text" placeholder="Juan dela Cruz" value={form.ownerName} onChange={handleChange} required />
             </div>
             <div className="form-group">
               <label>Rate (₱/hr) *</label>
@@ -343,7 +363,7 @@ function CourtModal({ court, onClose, onSaved }) {
           </div>
 
           <div className="form-group">
-            <label>Contact Number</label>
+            <label>Contact Number *</label>
             <div className="phone-input">
               <select
                 className="phone-input__select"
@@ -361,6 +381,25 @@ function CourtModal({ court, onClose, onSaved }) {
                 value={phoneNum}
                 onChange={e => setPhoneNum(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Opening Time *</label>
+              <select name="openTime" value={form.openTime} onChange={handleChange} required>
+                {HOUR_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Closing Time *</label>
+              <select name="closeTime" value={form.closeTime} onChange={handleChange} required>
+                {HOUR_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -541,19 +580,35 @@ function UsersTab() {
 
 /* ── Bookings Tab ───────────────────────────────────────── */
 function BookingsTab() {
-  const [bookings, setBookings] = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [search,   setSearch]   = useState('')
-  const [sortKey,  setSortKey]  = useState('createdAt')
-  const [sortDir,  setSortDir]  = useState('desc')
-  const [page,     setPage]     = useState(1)
+  const [bookings,        setBookings]        = useState([])
+  const [courts,          setCourts]          = useState([])
+  const [loading,         setLoading]         = useState(true)
+  const [search,          setSearch]          = useState('')
+  const [sortKey,         setSortKey]         = useState('createdAt')
+  const [sortDir,         setSortDir]         = useState('desc')
+  const [page,            setPage]            = useState(1)
+  const [calModal,        setCalModal]        = useState(null)
+  const [selectedCourtId, setSelectedCourtId] = useState(null)
 
   useEffect(() => {
-    client.get('/admin/bookings')
-      .then(r => setBookings(r.data))
-      .catch(() => {})
+    Promise.all([
+      client.get('/admin/bookings'),
+      client.get('/admin/courts'),
+    ]).then(([bRes, cRes]) => {
+      setBookings(bRes.data)
+      setCourts(cRes.data)
+    }).catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  const activeCourts = useMemo(() => courts.filter(c => c.active), [courts])
+  const multiLocation = activeCourts.length >= 2
+
+  useEffect(() => {
+    if (activeCourts.length === 1) setSelectedCourtId(activeCourts[0].id)
+  }, [activeCourts])
+
+  const selectedCourt = activeCourts.find(c => c.id === selectedCourtId) ?? null
 
   const handleCancel = async (id) => {
     if (!window.confirm('Cancel this booking?')) return
@@ -593,6 +648,29 @@ function BookingsTab() {
   const totalPages   = Math.ceil(filtered.length / PAGE_SIZE)
   const pageBookings = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
+  const todayISO      = new Date().toISOString().split('T')[0]
+  const todayBookings = bookings.filter(b =>
+    (b.status === 'CONFIRMED' || b.status === 'PENDING') &&
+    b.bookingDate === todayISO &&
+    (selectedCourtId ? b.courtId === selectedCourtId : true)
+  )
+
+  const openHour  = selectedCourt?.openTime  ? parseInt(selectedCourt.openTime)  : 7
+  const closeHour = selectedCourt?.closeTime ? parseInt(selectedCourt.closeTime) : 22
+  const HOURS     = Array.from({ length: closeHour - openHour + 1 }, (_, i) => i + openHour)
+  const numCourts = selectedCourt?.totalCourts ?? 1
+  const courtNums = Array.from({ length: numCourts }, (_, i) => i + 1)
+
+  const getBookingAt = (hour, cn) =>
+    todayBookings.find(b => b.courtNumber === cn && parseInt(b.startTime) === hour) ?? null
+
+  const isCovered = (hour, cn) =>
+    todayBookings.some(b =>
+      b.courtNumber === cn && parseInt(b.startTime) < hour && parseInt(b.endTime) > hour
+    )
+
+  const fmtHour = h => h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`
+
   const SortTh = ({ label, k }) => (
     <th className={`sortable${sortKey === k ? ` ${sortDir}` : ''}`} onClick={() => toggleSort(k)}>
       {label}<span className="sort-arrow">{sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ↕'}</span>
@@ -600,83 +678,264 @@ function BookingsTab() {
   )
 
   return (
-    <div className="table-card">
-      <div className="table-toolbar">
-        <input
-          className="table-search"
-          placeholder="Search by ID, user, court or status…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        {search && (
-          <button className="btn btn-outline" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => setSearch('')}>
-            Clear
-          </button>
-        )}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>
-          {filtered.length} of {bookings.length}
-        </span>
-      </div>
+    <>
+      {/* ── Today's Schedule Calendar ── */}
+      <div className="today-calendar">
+        <div className="today-calendar__header">
+          Today's Schedule —{' '}
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </div>
 
-      {loading ? (
-        <div className="page-loading"><div className="loading-spinner" /></div>
-      ) : filtered.length === 0 ? (
-        <div className="empty-state"><h3>{search ? 'No results found.' : 'No bookings yet.'}</h3></div>
-      ) : (
-        <>
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <SortTh label="#"      k="id" />
-                  <SortTh label="User"   k="username" />
-                  <th>Court</th>
-                  <SortTh label="Date"   k="bookingDate" />
-                  <th>Time</th>
-                  <SortTh label="Amount" k="totalAmount" />
-                  <SortTh label="Status" k="status" />
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageBookings.map(b => (
-                  <tr key={b.id}>
-                    <td className="td-muted">{b.id}</td>
-                    <td>
-                      <span className="td-primary">{b.username}</span>
-                      <span className="td-sub">{b.userEmail}</span>
-                    </td>
-                    <td>
-                      <span className="td-primary">{b.courtName}</span>
-                      {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
-                    </td>
-                    <td className="td-muted">{formatDate(b.bookingDate)}</td>
-                    <td className="td-muted">{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
-                    <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
-                    <td><StatusBadge status={b.status} /></td>
-                    <td>
-                      <div className="td-actions">
-                        {b.status === 'PENDING' && (
-                          <button className="btn-icon btn-icon--success" onClick={() => handleConfirm(b.id, setBookings)} title="Confirm booking">✓</button>
-                        )}
-                        {(b.status === 'CONFIRMED' || b.status === 'PENDING') && (
-                          <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
+        {/* Location selector / back button */}
+        {multiLocation && (
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
+            {selectedCourtId ? (
+              <button className="cal-back-btn" onClick={() => setSelectedCourtId(null)}>
+                ← All Locations
+              </button>
+            ) : (
+              <div className="location-selector">
+                <div className="location-selector__label">Select a location to view its schedule:</div>
+                <div className="location-selector__grid">
+                  {activeCourts.map(c => (
+                    <button key={c.id} className="location-card" onClick={() => setSelectedCourtId(c.id)}>
+                      <div className="location-card__name">{c.name}</div>
+                      <div className="location-card__sub">
+                        {c.totalCourts} court{c.totalCourts !== 1 ? 's' : ''} · {c.indoor ? 'Indoor' : 'Outdoor'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {loading ? (
+          <div style={{ padding: 20, textAlign: 'center' }}><div className="loading-spinner" /></div>
+        ) : !selectedCourt ? (
+          multiLocation
+            ? <div className="today-calendar__empty">Choose a location above to see today's schedule.</div>
+            : <div className="today-calendar__empty">No confirmed or pending bookings scheduled for today.</div>
+        ) : (
+          <div className="today-calendar__grid" style={{ overflowX: 'auto' }}>
+            <div
+              className="cal-grid"
+              style={{ gridTemplateColumns: `64px repeat(${numCourts}, minmax(100px, 1fr))` }}
+            >
+              {/* Header row */}
+              <div className="cal-grid__corner" />
+              {courtNums.map(cn => (
+                <div key={cn} className="cal-grid__col-header">Court {cn}</div>
+              ))}
+
+              {/* Hour rows */}
+              {HOURS.map(hour => (
+                <Fragment key={hour}>
+                  <div className="cal-grid__hour-label">{fmtHour(hour)}</div>
+                  {courtNums.map(cn => {
+                    const booking = getBookingAt(hour, cn)
+                    const covered = !booking && isCovered(hour, cn)
+                    return (
+                      <div
+                        key={cn}
+                        className={`cal-grid__cell${booking ? ' cal-cell--booked' : covered ? ' cal-cell--covered' : ''}`}
+                      >
+                        {booking && (
+                          <button
+                            className={`cal-booking cal-booking--${booking.status.toLowerCase()}`}
+                            onClick={() => setCalModal(booking)}
+                          >
+                            <span className="cal-booking__user">{booking.username}</span>
+                            <span className="cal-booking__time">{formatTime(booking.startTime)}–{formatTime(booking.endTime)}</span>
+                          </button>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    )
+                  })}
+                </Fragment>
+              ))}
+            </div>
           </div>
-          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
-        </>
+        )}
+      </div>
+
+      {/* ── Bookings Table ── */}
+      <div className="table-card">
+        <div className="table-toolbar">
+          <input
+            className="table-search"
+            placeholder="Search by ID, user, court or status…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="btn btn-outline" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => setSearch('')}>
+              Clear
+            </button>
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>
+            {filtered.length} of {bookings.length}
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="page-loading"><div className="loading-spinner" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state"><h3>{search ? 'No results found.' : 'No bookings yet.'}</h3></div>
+        ) : (
+          <>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <SortTh label="#"      k="id" />
+                    <SortTh label="User"   k="username" />
+                    <th>Court</th>
+                    <SortTh label="Date"   k="bookingDate" />
+                    <th>Time</th>
+                    <SortTh label="Amount" k="totalAmount" />
+                    <SortTh label="Status" k="status" />
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageBookings.map(b => (
+                    <tr key={b.id}>
+                      <td className="td-muted">{b.id}</td>
+                      <td>
+                        <span className="td-primary">{b.username}</span>
+                        <span className="td-sub">{b.userEmail}</span>
+                      </td>
+                      <td>
+                        <span className="td-primary">{b.courtName}</span>
+                        {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
+                      </td>
+                      <td className="td-muted">{formatDate(b.bookingDate)}</td>
+                      <td className="td-muted">{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
+                      <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
+                      <td><StatusBadge status={b.status} /></td>
+                      <td>
+                        <div className="td-actions">
+                          {b.status === 'PENDING' && (
+                            <button className="btn-icon btn-icon--success" onClick={() => handleConfirm(b.id, setBookings)} title="Confirm booking">✓</button>
+                          )}
+                          {(b.status === 'CONFIRMED' || b.status === 'PENDING') && (
+                            <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+          </>
+        )}
+      </div>
+
+      {/* ── Calendar booking detail modal ── */}
+      {calModal && (
+        <div className="modal-overlay" onClick={() => setCalModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal__header">
+              <h3>Booking #{calModal.id}</h3>
+              <button className="modal__close" onClick={() => setCalModal(null)}>×</button>
+            </div>
+            <div className="detail-list" style={{ padding: '0 0 4px' }}>
+              <div className="detail-item">
+                <span className="detail-item__label">Status</span>
+                <span className="detail-item__value"><StatusBadge status={calModal.status} /></span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">Court</span>
+                <span className="detail-item__value">
+                  {calModal.courtName}
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-3)' }}>
+                    {calModal.courtIndoor ? 'Indoor' : 'Outdoor'} · Court {calModal.courtNumber}
+                  </span>
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">Date</span>
+                <span className="detail-item__value">{formatDate(calModal.bookingDate)}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">Time</span>
+                <span className="detail-item__value">{formatTime(calModal.startTime)} – {formatTime(calModal.endTime)}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">User</span>
+                <span className="detail-item__value">
+                  {calModal.username}
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-3)' }}>{calModal.userEmail}</span>
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item__label">Amount</span>
+                <span className="detail-item__value" style={{ color: 'var(--neon)', fontWeight: 700, fontSize: 18 }}>
+                  ₱{Number(calModal.totalAmount).toFixed(2)}
+                </span>
+              </div>
+            </div>
+            {(calModal.status === 'CONFIRMED' || calModal.status === 'PENDING') && (
+              <div style={{ display: 'flex', gap: 8, padding: '16px 24px 20px' }}>
+                {calModal.status === 'PENDING' && (
+                  <button
+                    className="btn btn-neon"
+                    style={{ flex: 1 }}
+                    onClick={() => { handleConfirm(calModal.id, setBookings); setCalModal(null) }}
+                  >
+                    ✓ Confirm
+                  </button>
+                )}
+                <button
+                  className="btn btn-danger"
+                  style={{ flex: 1 }}
+                  onClick={() => { handleCancel(calModal.id); setCalModal(null) }}
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
-    </div>
+    </>
   )
 }
 
 /* ── Payments Tab ───────────────────────────────────────── */
+function groupPayments(bookings) {
+  const groups = new Map()
+  bookings.forEach(b => {
+    const key = `${b.userId}-${b.courtId}-${b.bookingDate}-${b.startTime}-${b.endTime}`
+    if (groups.has(key)) {
+      const g = groups.get(key)
+      g.ids.push(b.id)
+      g.courtNumbers.push(b.courtNumber)
+      g.totalAmount = (Number(g.totalAmount) + Number(b.totalAmount)).toFixed(2)
+    } else {
+      groups.set(key, {
+        key,
+        ids:          [b.id],
+        status:       b.status,
+        bookingDate:  b.bookingDate,
+        startTime:    b.startTime,
+        endTime:      b.endTime,
+        courtName:    b.courtName,
+        courtNumbers: [b.courtNumber],
+        totalAmount:  b.totalAmount,
+        paymentReceipt: b.paymentReceipt,
+        username:     b.username,
+        userEmail:    b.userEmail,
+      })
+    }
+  })
+  return [...groups.values()]
+}
+
 function PaymentsTab() {
   const [bookings,     setBookings]     = useState([])
   const [loading,      setLoading]      = useState(true)
@@ -693,109 +952,109 @@ function PaymentsTab() {
 
   useEffect(() => { load() }, [load])
 
-  const totalPages   = Math.ceil(bookings.length / PAGE_SIZE)
-  const pageBookings = bookings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const groups     = useMemo(() => groupPayments(bookings), [bookings])
+  const totalPages = Math.ceil(groups.length / PAGE_SIZE)
+  const pageGroups = groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const handleConfirmLocal = async (id) => {
+  const handleConfirmLocal = async (ids) => {
     if (!window.confirm('Confirm this booking?')) return
     try {
-      await client.patch(`/admin/bookings/${id}/confirm`)
-      setBookings(bs => bs.filter(b => b.id !== id))
+      await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/confirm`)))
+      setBookings(bs => bs.filter(b => !ids.includes(b.id)))
     } catch {
       alert('Could not confirm booking.')
     }
   }
 
-  const handleCancelLocal = async (id) => {
+  const handleCancelLocal = async (ids) => {
     if (!window.confirm('Cancel this booking?')) return
     try {
-      await client.patch(`/admin/bookings/${id}/cancel`)
-      setBookings(bs => bs.filter(b => b.id !== id))
+      await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/cancel`)))
+      setBookings(bs => bs.filter(b => !ids.includes(b.id)))
     } catch {
       alert('Could not cancel booking.')
     }
   }
 
+  const courtLabel = g =>
+    g.courtNumbers.length === 1
+      ? `, Court ${g.courtNumbers[0]}`
+      : `, Courts ${[...g.courtNumbers].sort((a, b) => a - b).join(', ')}`
+
   return (
     <>
-      <div className="table-card">
-        {loading ? (
-          <div className="page-loading"><div className="loading-spinner" /></div>
-        ) : bookings.length === 0 ? (
-          <div className="empty-state">
-            <h3>No pending payments.</h3>
-            <p>All bookings have been reviewed.</p>
+      {loading ? (
+        <div className="page-loading"><div className="loading-spinner" /></div>
+      ) : groups.length === 0 ? (
+        <div className="empty-state">
+          <h3>No pending payments.</h3>
+          <p>All bookings have been reviewed.</p>
+        </div>
+      ) : (
+        <>
+          <div className="payment-cards">
+            {pageGroups.map(g => (
+              <div key={g.key} className="payment-card-admin">
+                <div className="payment-card-admin__header">
+                  <div>
+                    <span className="payment-card-admin__id">
+                      #{g.ids.length === 1 ? g.ids[0] : `${g.ids[0]}+${g.ids.length - 1}`}
+                    </span>
+                    <span className="payment-card-admin__court-label">
+                      {' · '}{g.courtName}{courtLabel(g)}
+                    </span>
+                  </div>
+                  <span className="badge badge-pending">PENDING</span>
+                </div>
+
+                <div className="payment-card-admin__body">
+                  <div className="payment-card-admin__date">
+                    {formatDate(g.bookingDate)} · {formatTime(g.startTime)} – {formatTime(g.endTime)}
+                  </div>
+                  <div className="payment-card-admin__user">
+                    <span className="td-primary">{g.username}</span>
+                    <span className="td-sub">{g.userEmail}</span>
+                  </div>
+                  <div className="payment-card-admin__amount">₱{Number(g.totalAmount).toFixed(2)}</div>
+
+                  <div className="payment-card-admin__receipt">
+                    {g.paymentReceipt ? (
+                      <button
+                        className="receipt-view-btn"
+                        onClick={() => setReceiptModal(g.paymentReceipt)}
+                        title="View receipt"
+                      >
+                        <img src={g.paymentReceipt} alt="Receipt" className="receipt-thumb-sm" />
+                        <span>View Receipt</span>
+                      </button>
+                    ) : (
+                      <span className="payment-no-receipt">No receipt uploaded yet</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="payment-card-admin__actions">
+                  <button
+                    className="btn btn-neon"
+                    style={{ flex: 1 }}
+                    onClick={() => handleConfirmLocal(g.ids)}
+                  >
+                    ✓ Confirm{g.ids.length > 1 ? ` All (${g.ids.length})` : ''}
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    style={{ flex: 1 }}
+                    onClick={() => handleCancelLocal(g.ids)}
+                  >
+                    ✕ Cancel{g.ids.length > 1 ? ' All' : ''}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <>
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>User</th>
-                    <th>Court</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Receipt</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageBookings.map(b => (
-                    <tr key={b.id}>
-                      <td className="td-muted">{b.id}</td>
-                      <td>
-                        <span className="td-primary">{b.username}</span>
-                        <span className="td-sub">{b.userEmail}</span>
-                      </td>
-                      <td>
-                        <span className="td-primary">{b.courtName}</span>
-                        {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
-                      </td>
-                      <td className="td-muted">
-                        {formatDate(b.bookingDate)}
-                        <span className="td-sub">{formatTime(b.startTime)} – {formatTime(b.endTime)}</span>
-                      </td>
-                      <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
-                      <td>
-                        {b.paymentReceipt ? (
-                          <button
-                            className="btn btn-outline"
-                            style={{ fontSize: 12, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}
-                            onClick={() => setReceiptModal(b.paymentReceipt)}
-                            title="View receipt"
-                          >
-                            <img src={b.paymentReceipt} alt="Receipt" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 3, background: '#fff' }} />
-                            View
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-3)', fontSize: 12 }}>No receipt</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="td-actions">
-                          <button
-                            className="btn-icon btn-icon--success"
-                            onClick={() => handleConfirmLocal(b.id)}
-                            title="Confirm booking"
-                          >✓</button>
-                          <button
-                            className="btn-icon btn-icon--danger"
-                            onClick={() => handleCancelLocal(b.id)}
-                            title="Cancel booking"
-                          >✕</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
-          </>
-        )}
-      </div>
+          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+        </>
+      )}
 
       {receiptModal && (
         <div className="modal-overlay" onClick={() => setReceiptModal(null)}>

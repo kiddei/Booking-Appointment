@@ -144,8 +144,12 @@ Booking-Appointment/
 - **GCash QR:** stored as base64 `TEXT` in `Court.gcashQrCode`; backend body limit raised to 5 MB in `main.ts`; UI shows a dashed dropzone with a `+` circle when empty, and a 120×120 preview with Replace/Remove when set
 - **Phone input:** `.phone-input` is always full-width (not inside a `form-row`) so the flag select and number field have adequate space
 - **Playable courts:** `Court.totalCourts` controls how many individual courts (1–20) are under a location; `Booking.courtNumber` records which one was booked; conflict check scopes to `(courtId, courtNumber)` pair; `PlayableCourtGrid` renders SVG top-down court cards with Available/Busy/Full indicators
-- **Booking flow:** 3-step progressive disclosure — (1) select location + date, (2) `PlayableCourtGrid` appears, (3) `TimeSlotPicker` appears once a court is chosen; `courtNumber` is required in `POST /bookings`
-- **Payment flow:** New bookings default to `PENDING`; user sees GCash QR + receipt upload on BookingDetailPage; after upload shows "Under Review"; admin confirms via Payments tab → status → `CONFIRMED`
+- **Booking flow:** 4-step progressive disclosure — (1) select location + date, (2) `PlayableCourtGrid` appears, (3) `TimeSlotPicker` appears once a court is chosen, (4) after "Confirm Booking" succeeds, a payment section (GCash QR + receipt upload) appears inline on the same page as Step 4; `courtNumber` is required in `POST /bookings`; a single receipt upload applies to all courts booked via `Promise.allSettled` over each booking ID
+- **Payment flow:** New bookings default to `PENDING`; after booking creation user stays on BookingPage for inline GCash QR + receipt upload (Step 4); "Pay later" navigates to dashboard; after receipt upload shows "Under Review" on BookingDetailPage; admin confirms via Payments tab card → status → `CONFIRMED`
+- **Court operating hours:** `Court.openTime` and `Court.closeTime` (stored as `"HH:00"` strings, e.g. `"07:00"` / `"22:00"`); required fields in court creation; control both the `TimeSlotPicker` slot range (via `openHour`/`closeHour` props) and the admin calendar row range; defaults: `07:00` / `22:00`
+- **Multi-court booking grouping:** When a user books N courts in one session (same `courtId`, `bookingDate`, `startTime`, `endTime`), the Dashboard shows them as a single expandable row; expanding reveals individual sub-rows (`.booking-sub-row`) for each court with court number, date, time, and per-court amount — clearly justifying the combined total; Cancel cancels all IDs via `Promise.allSettled`; "Pay Now" links to the primary booking's detail page; clicking a sub-row navigates to that specific booking's detail
+- **Admin Payments tab:** Card-based layout (`.payment-cards` grid, `.payment-card-admin`) — not a table; multi-court sessions grouped into one card (same grouping key as dashboard); "Confirm All (N)" / "Cancel All" calls `Promise.allSettled` over all booking IDs in the group; receipt opens in a modal overlay
+- **Admin Bookings tab:** Today's Schedule calendar above the table — also fetches `/admin/courts` to know `totalCourts`/`openTime`/`closeTime` per location; if 2+ active courts exist shows a location-picker card grid first (`.location-selector`); once a location is selected the calendar uses a CSS grid layout where **columns = playable court numbers** and **rows = hourly time slots (court's openTime → closeTime)**; booking chips appear only in the start-hour row, subsequent hours show a tinted cell (`.cal-cell--covered`); clicking a chip opens the detail modal with Confirm/Cancel actions
 - **Conflict detection:** blocks both `PENDING` and `CONFIRMED` bookings to prevent double-booking before payment
 
 ---
@@ -159,7 +163,7 @@ Booking-Appointment/
 
 **Models:**
 - `User`: `id`, `username`, `email`, `passwordHash`, `role (PLAYER|ADMIN)`, `active`, `createdAt`
-- `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `active`, `createdAt`
+- `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `openTime`, `closeTime`, `active`, `createdAt`
 - `Booking`: `id`, `userId`, `courtId`, `courtNumber`, `startTime`, `endTime`, `status (PENDING|CONFIRMED|CANCELLED)`, `paymentReceipt String?`, `createdAt`
 
 **Relations:** `User` 1→N `Booking`, `Court` 1→N `Booking`
@@ -239,6 +243,11 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 - [x] Admin user management — role toggle (PLAYER ↔ ADMIN), enable/disable accounts
 - [x] Admin booking management — view all, cancel any booking
 - [x] Admin overview stats — courts, users, bookings, revenue
+- [x] Admin Payments tab — card-based layout with receipt thumbnail and confirm/cancel actions; multi-court sessions grouped into one card with "Confirm All"
+- [x] Admin Bookings tab — Today's Schedule calendar (columns = courts, rows = hourly slots per court's openTime→closeTime, location-picker for multi-location admins, clickable chips, detail modal)
+- [x] Inline payment flow — Step 4 on BookingPage (GCash QR + receipt upload without leaving the page)
+- [x] Dashboard multi-court grouping — same-session bookings shown as one expandable row; sub-rows show individual courts with per-court amounts; Cancel cancels all courts in session
+- [x] Court operating hours — openTime/closeTime fields on every court (required on creation); drive TimeSlotPicker range and admin calendar row range
 - [ ] Admin booking reschedule (move booking to a new time slot)
 - [ ] Waitlist / notification when cancelled slot opens
 - [ ] User profile & password change page
@@ -270,4 +279,4 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 
 ---
 
-*Last updated: 2026-05-08 (r5)*
+*Last updated: 2026-05-10 (r8)*

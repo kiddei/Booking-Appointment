@@ -31,6 +31,8 @@ model Court {
   totalCourts   Int       @default(1)
   maxPlayers    Int       @default(4)
   hourlyRate    Float     @default(25.0)
+  openTime      String    @default("07:00")
+  closeTime     String    @default("22:00")
   active        Boolean   @default(true)
   bookings      Booking[]
   createdAt     DateTime  @default(now())

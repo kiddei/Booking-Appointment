@@ -1,5 +1,6 @@
 import {
-  IsBoolean, IsNumber, IsOptional, IsPositive, IsString, Max, Min,
+  IsBoolean, IsNumber, IsOptional, IsPositive, IsString,
+  Matches, Max, Min,
 } from 'class-validator'
 
 export class UpdateCourtDto {
@@ -41,6 +42,16 @@ export class UpdateCourtDto {
   @IsPositive()
   @IsOptional()
   hourlyRate?: number
+
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/)
+  @IsOptional()
+  openTime?: string
+
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/)
+  @IsOptional()
+  closeTime?: string
 
   @IsBoolean()
   @IsOptional()
