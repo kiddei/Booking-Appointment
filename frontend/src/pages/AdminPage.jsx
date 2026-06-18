@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react'
 import client from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 const PAGE_SIZE = 10
 
@@ -31,6 +32,7 @@ function parsePhone(stored) {
 
 /* ── Page shell ─────────────────────────────────────────── */
 export default function AdminPage() {
+  const { user }    = useAuth()
   const [tab, setTab] = useState('overview')
 
   return (
@@ -63,7 +65,7 @@ export default function AdminPage() {
           </div>
 
           {tab === 'overview'  && <OverviewTab />}
-          {tab === 'courts'    && <CourtsTab />}
+          {tab === 'courts'    && <CourtsTab adminId={user?.id} />}
           {tab === 'users'     && <UsersTab />}
           {tab === 'bookings'  && <BookingsTab />}
           {tab === 'payments'  && <PaymentsTab />}
@@ -113,7 +115,7 @@ function StatCard({ label, value, sub, accent }) {
 }
 
 /* ── Courts Tab ─────────────────────────────────────────── */
-function CourtsTab() {
+function CourtsTab({ adminId }) {
   const [courts,    setCourts]    = useState([])
   const [loading,   setLoading]   = useState(true)
   const [showAdd,   setShowAdd]   = useState(false)
@@ -175,39 +177,55 @@ function CourtsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageCourts.map(c => (
-                    <tr key={c.id} className={!c.active ? 'row-inactive' : ''}>
-                      <td>
-                        <span className="td-primary">{c.name}</span>
-                        {c.description && <span className="td-sub">{c.description}</span>}
-                      </td>
-                      <td className="td-muted">{c.location || '—'}</td>
-                      <td className="td-muted">{c.ownerName || '—'}</td>
-                      <td className="td-muted">{c.contactNumber || '—'}</td>
-                      <td><span className="court-card__badge">{c.indoor ? 'Indoor' : 'Outdoor'}</span></td>
-                      <td className="td-center">{c.totalCourts ?? 1}</td>
-                      <td className="td-accent">₱{Number(c.hourlyRate).toFixed(2)}</td>
-                      <td>
-                        {c.gcashQrCode
-                          ? <img src={c.gcashQrCode} alt="QR" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#fff', cursor: 'pointer' }} onClick={() => window.open(c.gcashQrCode)} title="View GCash QR" />
-                          : <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
-                        }
-                      </td>
-                      <td><ActiveBadge active={c.active} /></td>
-                      <td>
-                        <div className="td-actions">
-                          <button className="btn-icon btn-icon--edit" onClick={() => setEditCourt(c)} title="Edit">✎</button>
-                          <button
-                            className={`btn-icon ${c.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
-                            onClick={() => handleToggleActive(c)}
-                            title={c.active ? 'Deactivate' : 'Reactivate'}
-                          >
-                            {c.active ? '✕' : '✓'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {pageCourts.map(c => {
+                    const isOwner = c.createdByAdminId === adminId
+                    return (
+                      <tr key={c.id} className={!c.active ? 'row-inactive' : ''}>
+                        <td>
+                          <span className="td-primary">{c.name}</span>
+                          {c.description && <span className="td-sub">{c.description}</span>}
+                          {!isOwner && (
+                            <span style={{
+                              display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 600,
+                              color: 'var(--text-3)', background: 'rgba(255,255,255,0.06)',
+                              borderRadius: 3, padding: '1px 6px', letterSpacing: '0.5px',
+                            }}>
+                              VIEW ONLY
+                            </span>
+                          )}
+                        </td>
+                        <td className="td-muted">{c.location || '—'}</td>
+                        <td className="td-muted">{c.ownerName || '—'}</td>
+                        <td className="td-muted">{c.contactNumber || '—'}</td>
+                        <td><span className="court-card__badge">{c.indoor ? 'Indoor' : 'Outdoor'}</span></td>
+                        <td className="td-center">{c.totalCourts ?? 1}</td>
+                        <td className="td-accent">₱{Number(c.hourlyRate).toFixed(2)}</td>
+                        <td>
+                          {c.gcashQrCode
+                            ? <img src={c.gcashQrCode} alt="QR" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, background: '#fff', cursor: 'pointer' }} onClick={() => window.open(c.gcashQrCode)} title="View GCash QR" />
+                            : <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
+                          }
+                        </td>
+                        <td><ActiveBadge active={c.active} /></td>
+                        <td>
+                          {isOwner ? (
+                            <div className="td-actions">
+                              <button className="btn-icon btn-icon--edit" onClick={() => setEditCourt(c)} title="Edit">✎</button>
+                              <button
+                                className={`btn-icon ${c.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
+                                onClick={() => handleToggleActive(c)}
+                                title={c.active ? 'Deactivate' : 'Reactivate'}
+                              >
+                                {c.active ? '✕' : '✓'}
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

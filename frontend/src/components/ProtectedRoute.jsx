@@ -1,8 +1,9 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading } = useAuth()
+  const location          = useLocation()
 
   if (loading) {
     return (
@@ -12,8 +13,13 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     )
   }
 
-  if (!user) return <Navigate to="/auth/login" replace />
+  // Not authenticated — send to the appropriate login page
+  if (!user) {
+    const loginPath = adminOnly ? '/admin/login' : '/login'
+    return <Navigate to={loginPath} state={{ from: location }} replace />
+  }
 
+  // Player trying to access an admin-only route
   if (adminOnly && user.role !== 'ADMIN') {
     return <Navigate to="/dashboard" replace />
   }

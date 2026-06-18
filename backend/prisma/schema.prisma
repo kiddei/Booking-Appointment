@@ -8,35 +8,38 @@ datasource db {
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  username     String    @unique
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(PLAYER)
-  active       Boolean   @default(true)
-  bookings     Booking[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(PLAYER)
+  active        Boolean   @default(true)
+  bookings      Booking[]
+  courtsCreated Court[]   @relation("AdminCourts")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Court {
-  id            Int       @id @default(autoincrement())
-  name          String
-  description   String?
-  location      String?
-  ownerName     String?
-  contactNumber String?
-  gcashQrCode   String?
-  indoor        Boolean   @default(false)
-  totalCourts   Int       @default(1)
-  maxPlayers    Int       @default(4)
-  hourlyRate    Float     @default(25.0)
-  openTime      String    @default("07:00")
-  closeTime     String    @default("22:00")
-  active        Boolean   @default(true)
-  bookings      Booking[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  name             String
+  description      String?
+  location         String?
+  ownerName        String?
+  contactNumber    String?
+  gcashQrCode      String?
+  indoor           Boolean   @default(false)
+  totalCourts      Int       @default(1)
+  maxPlayers       Int       @default(4)
+  hourlyRate       Float     @default(25.0)
+  openTime         String    @default("07:00")
+  closeTime        String    @default("22:00")
+  active           Boolean   @default(true)
+  createdByAdminId Int?
+  createdByAdmin   User?     @relation("AdminCourts", fields: [createdByAdminId], references: [id])
+  bookings         Booking[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model Booking {

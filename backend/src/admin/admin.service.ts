@@ -1,63 +1,85 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import {
+  Injectable, NotFoundException, BadRequestException, ForbiddenException,
+} from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateCourtDto } from '../courts/dto/create-court.dto'
 import { UpdateCourtDto } from '../courts/dto/update-court.dto'
 
-const USER_SELECT = { id: true, username: true, email: true, role: true, active: true, createdAt: true }
+const USER_SELECT = {
+  id: true, username: true, email: true, role: true, active: true, createdAt: true,
+}
 
 @Injectable()
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
-  // ── Stats ────────────────────────────────────────────────
+  // ── Stats (scoped to admin's courts) ─────────────────────
 
-  async getStats() {
-    const [totalCourts, activeCourts, totalUsers, totalBookings, pendingBookings, revenue] = await Promise.all([
-      this.prisma.court.count(),
-      this.prisma.court.count({ where: { active: true } }),
-      this.prisma.user.count(),
-      this.prisma.booking.count({ where: { status: 'CONFIRMED' } }),
-      this.prisma.booking.count({ where: { status: 'PENDING' } }),
-      this.prisma.booking.findMany({
-        where: { status: 'CONFIRMED' },
-        include: { court: { select: { hourlyRate: true } } },
-      }),
-    ])
+  async getStats(adminId: number) {
+    const adminCourtIds = await this.getAdminCourtIds(adminId)
+
+    const [totalCourts, activeCourts, totalUsers, totalBookings, pendingBookings, revenue] =
+      await Promise.all([
+        this.prisma.court.count({ where: { createdByAdminId: adminId } }),
+        this.prisma.court.count({ where: { createdByAdminId: adminId, active: true } }),
+        this.prisma.user.count(),
+        this.prisma.booking.count({
+          where: { status: 'CONFIRMED', courtId: { in: adminCourtIds } },
+        }),
+        this.prisma.booking.count({
+          where: { status: 'PENDING', courtId: { in: adminCourtIds } },
+        }),
+        this.prisma.booking.findMany({
+          where: { status: 'CONFIRMED', courtId: { in: adminCourtIds } },
+          include: { court: { select: { hourlyRate: true } } },
+        }),
+      ])
 
     const totalRevenue = revenue.reduce((sum, b) => {
-      const hours = (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / (1000 * 60 * 60)
+      const hours =
+        (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / (1000 * 60 * 60)
       return sum + hours * b.court.hourlyRate
     }, 0)
 
-    return { totalCourts, activeCourts, totalUsers, totalBookings, pendingBookings, totalRevenue: totalRevenue.toFixed(2) }
+    return {
+      totalCourts,
+      activeCourts,
+      totalUsers,
+      totalBookings,
+      pendingBookings,
+      totalRevenue: totalRevenue.toFixed(2),
+    }
   }
 
   // ── Courts ───────────────────────────────────────────────
 
-  findAllCourts() {
-    return this.prisma.court.findMany({ orderBy: { createdAt: 'asc' } })
+  findAllCourts(adminId: number) {
+    return this.prisma.court.findMany({
+      where: { createdByAdminId: adminId },
+      orderBy: { createdAt: 'asc' },
+    })
   }
 
-  createCourt(dto: CreateCourtDto) {
-    return this.prisma.court.create({ data: dto })
+  createCourt(dto: CreateCourtDto, adminId: number) {
+    return this.prisma.court.create({ data: { ...dto, createdByAdminId: adminId } })
   }
 
-  async updateCourt(id: number, dto: UpdateCourtDto) {
-    await this.requireCourt(id)
+  async updateCourt(id: number, dto: UpdateCourtDto, adminId: number) {
+    await this.requireOwnedCourt(id, adminId)
     return this.prisma.court.update({ where: { id }, data: dto })
   }
 
-  async deactivateCourt(id: number) {
-    await this.requireCourt(id)
+  async deactivateCourt(id: number, adminId: number) {
+    await this.requireOwnedCourt(id, adminId)
     return this.prisma.court.update({ where: { id }, data: { active: false } })
   }
 
-  async reactivateCourt(id: number) {
-    await this.requireCourt(id)
+  async reactivateCourt(id: number, adminId: number) {
+    await this.requireOwnedCourt(id, adminId)
     return this.prisma.court.update({ where: { id }, data: { active: true } })
   }
 
-  // ── Users ────────────────────────────────────────────────
+  // ── Users (global — all admins can view all users) ───────
 
   findAllUsers() {
     return this.prisma.user.findMany({
@@ -76,10 +98,12 @@ export class AdminService {
     return this.prisma.user.update({ where: { id }, data: { active }, select: USER_SELECT })
   }
 
-  // ── Bookings ─────────────────────────────────────────────
+  // ── Bookings (scoped to admin's courts) ──────────────────
 
-  async findAllBookings() {
+  async findAllBookings(adminId: number) {
+    const adminCourtIds = await this.getAdminCourtIds(adminId)
     const rows = await this.prisma.booking.findMany({
+      where:   { courtId: { in: adminCourtIds } },
       include: {
         user:  { select: { id: true, username: true, email: true } },
         court: true,
@@ -89,9 +113,10 @@ export class AdminService {
     return rows.map(this.formatBooking)
   }
 
-  async findPendingBookings() {
+  async findPendingBookings(adminId: number) {
+    const adminCourtIds = await this.getAdminCourtIds(adminId)
     const rows = await this.prisma.booking.findMany({
-      where: { status: 'PENDING' },
+      where: { status: 'PENDING', courtId: { in: adminCourtIds } },
       include: {
         user:  { select: { id: true, username: true, email: true } },
         court: true,
@@ -101,21 +126,25 @@ export class AdminService {
     return rows.map(this.formatBooking)
   }
 
-  async confirmBooking(id: number) {
+  async confirmBooking(id: number, adminId: number) {
     const booking = await this.prisma.booking.findUnique({
-      where: { id },
+      where:   { id },
       include: {
         court: true,
         user:  { select: { id: true, username: true, email: true } },
       },
     })
     if (!booking) throw new NotFoundException('Booking not found')
-    if (booking.status === 'CONFIRMED') throw new BadRequestException('Booking is already confirmed')
-    if (booking.status === 'CANCELLED') throw new BadRequestException('Cannot confirm a cancelled booking')
+    if (booking.court.createdByAdminId !== adminId)
+      throw new ForbiddenException('You can only manage bookings on your own courts')
+    if (booking.status === 'CONFIRMED')
+      throw new BadRequestException('Booking is already confirmed')
+    if (booking.status === 'CANCELLED')
+      throw new BadRequestException('Cannot confirm a cancelled booking')
 
     const updated = await this.prisma.booking.update({
-      where: { id },
-      data: { status: 'CONFIRMED' },
+      where:   { id },
+      data:    { status: 'CONFIRMED' },
       include: {
         court: true,
         user:  { select: { id: true, username: true, email: true } },
@@ -124,20 +153,23 @@ export class AdminService {
     return this.formatBooking(updated)
   }
 
-  async cancelBooking(id: number) {
+  async cancelBooking(id: number, adminId: number) {
     const booking = await this.prisma.booking.findUnique({
-      where: { id },
+      where:   { id },
       include: {
         court: true,
         user:  { select: { id: true, username: true, email: true } },
       },
     })
     if (!booking) throw new NotFoundException('Booking not found')
-    if (booking.status === 'CANCELLED') throw new BadRequestException('Booking already cancelled')
+    if (booking.court.createdByAdminId !== adminId)
+      throw new ForbiddenException('You can only manage bookings on your own courts')
+    if (booking.status === 'CANCELLED')
+      throw new BadRequestException('Booking already cancelled')
 
     const updated = await this.prisma.booking.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+      where:   { id },
+      data:    { status: 'CANCELLED' },
       include: {
         court: true,
         user:  { select: { id: true, username: true, email: true } },
@@ -146,12 +178,22 @@ export class AdminService {
     return this.formatBooking(updated)
   }
 
-  // ── Helpers ──────────────────────────────────────────────
+  // ── Private helpers ──────────────────────────────────────
 
-  private async requireCourt(id: number) {
-    const c = await this.prisma.court.findUnique({ where: { id } })
-    if (!c) throw new NotFoundException('Court not found')
-    return c
+  private async getAdminCourtIds(adminId: number): Promise<number[]> {
+    const courts = await this.prisma.court.findMany({
+      where:  { createdByAdminId: adminId },
+      select: { id: true },
+    })
+    return courts.map(c => c.id)
+  }
+
+  private async requireOwnedCourt(id: number, adminId: number) {
+    const court = await this.prisma.court.findUnique({ where: { id } })
+    if (!court) throw new NotFoundException('Court not found')
+    if (court.createdByAdminId !== adminId)
+      throw new ForbiddenException('You can only manage courts you created')
+    return court
   }
 
   private async requireUser(id: number) {

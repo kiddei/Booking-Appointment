@@ -19,8 +19,8 @@ Designed for commercial SaaS use and mobile-first.
 **Database (dev):** PostgreSQL 16 via Docker Compose — `docker compose up -d`
 
 **Dev seed users:**
-- Admin:  `admin` / `admin1234`
-- Player: `player1` / `player1234`
+- Admin:  `admin` / `admin1234` — logs in at `/admin/login`
+- Player: `player1` / `player1234` — logs in at `/login`
 
 ---
 
@@ -37,7 +37,7 @@ Booking-Appointment/
 │   │   ├── api/client.js      Axios instance (withCredentials, error unwrap)
 │   │   ├── context/AuthContext.jsx
 │   │   ├── components/        Navbar, Footer, ProtectedRoute, DatePicker, TimeSlotPicker
-│   │   ├── pages/             HomePage, LoginPage, RegisterPage,
+│   │   ├── pages/             HomePage, LoginPage, AdminLoginPage, RegisterPage,
 │   │   │                      CourtsPage, DashboardPage, BookingPage,
 │   │   │                      BookingDetailPage, AdminPage
 │   │   ├── App.jsx            Routes + AuthProvider
@@ -65,9 +65,12 @@ Booking-Appointment/
     │   ├── courts/            CourtsModule — /api/courts (public read)
     │   │   └── dto/           create-court.dto.ts, update-court.dto.ts
     │   ├── bookings/          BookingsModule — /api/bookings
+    │   ├── mail/              MailModule — @Global(); MailService (nodemailer)
+    │   │   ├── mail.service.ts       sendBookingConfirmation(); graceful SMTP failure logging
+    │   │   └── mail.module.ts        @Global() — no explicit import needed in BookingsModule
     │   └── admin/             AdminModule — /api/admin (ADMIN only)
-    │       ├── admin.service.ts      All admin business logic (courts, users, bookings, stats)
-    │       └── admin.controller.ts   Thin HTTP layer only
+    │       ├── admin.service.ts      All admin business logic; scoped to admin's owned courts
+    │       └── admin.controller.ts   Thin HTTP layer; passes @CurrentUser() to every service call
     ├── .env                   Local env (git-ignored)
     ├── .env.example           Template
     ├── package.json
@@ -92,9 +95,12 @@ Booking-Appointment/
 - **CSRF:** Not required — `httpOnly` + `SameSite=Lax` cookie + JSON-only API prevents CSRF attacks.
 - **CORS:** `http://localhost:5173` allowed in dev (`main.ts`); disabled in production (same-origin).
 - **Role enforcement:** `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('ADMIN')` at controller class level.
+- **Court ownership:** Admin service methods check `court.createdByAdminId === adminId`; throws `ForbiddenException` on mismatch. Enforced in service layer — even direct API calls are blocked.
 - **Password fields** are never returned from services — use `select` to exclude `passwordHash`.
 - **Disabled users** (`User.active = false`) are rejected at login with a clear error message.
 - **Frontend role check:** `ProtectedRoute` checks `user.role === 'ADMIN'` (not `'ROLE_ADMIN'`).
+- **Separate login portals:** `/login` for players, `/admin/login` for admins; `AdminLoginPage` rejects non-admin roles after successful auth and immediately logs them out. `ProtectedRoute adminOnly` redirects unauthenticated users to `/admin/login` (not `/login`).
+- **Email failures are non-fatal:** try/catch wraps mail send in `BookingsService.create()`; booking succeeds even if SMTP is misconfigured.
 
 ### REST API Contract
 | Method | Path | Auth | Description |
@@ -132,6 +138,8 @@ Booking-Appointment/
 - All API calls go through `src/api/client.js` (Axios, `withCredentials: true`).
 - Login sends JSON `{ username, password }` — no FormData.
 - Protected routes wrap children in `<ProtectedRoute>` or `<ProtectedRoute adminOnly>`.
+- `ProtectedRoute adminOnly` redirects unauthenticated users to `/admin/login`; regular routes redirect to `/login`.
+- `/auth/login` redirects to `/login` (backward compat via React Router `<Navigate>`).
 - CSS design tokens live in `:root` in `index.css` — change colors there, not inline.
 
 ### CSS / Design
@@ -163,10 +171,10 @@ Booking-Appointment/
 
 **Models:**
 - `User`: `id`, `username`, `email`, `passwordHash`, `role (PLAYER|ADMIN)`, `active`, `createdAt`
-- `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `openTime`, `closeTime`, `active`, `createdAt`
+- `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `openTime`, `closeTime`, `active`, `createdByAdminId Int?`, `createdAt`
 - `Booking`: `id`, `userId`, `courtId`, `courtNumber`, `startTime`, `endTime`, `status (PENDING|CONFIRMED|CANCELLED)`, `paymentReceipt String?`, `createdAt`
 
-**Relations:** `User` 1→N `Booking`, `Court` 1→N `Booking`
+**Relations:** `User` 1→N `Booking`, `User` 1→N `Court` (via `AdminCourts` relation), `Court` 1→N `Booking`
 
 **Notes:**
 - Conflict detection: `bookings.service.ts` — overlapping time range query on `CONFIRMED` bookings
@@ -234,7 +242,7 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 
 ## Planned Features (Backlog)
 
-- [ ] Email confirmation on booking (Nodemailer / SendGrid)
+- [x] Email confirmation on booking — `MailService` (nodemailer); HTML template with neon dark theme; graceful SMTP failure
 - [ ] Payment integration (Stripe Checkout)
 - [x] Court availability time slot picker (custom, per-day view)
 - [x] Playable court selection grid (SVG top-down cards, Available/Busy/Full, per-court booking)
@@ -269,14 +277,25 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 
 ## Environment Variables (Production)
 
-| Variable        | Description                                  |
-|-----------------|----------------------------------------------|
-| `DATABASE_URL`  | PostgreSQL connection string                 |
-| `JWT_SECRET`    | Long random string for signing JWTs          |
-| `JWT_EXPIRY`    | Token lifetime, e.g. `7d` (default)          |
-| `NODE_ENV`      | Set to `production`                          |
-| `PORT`          | HTTP port (default 8080)                     |
+| Variable        | Description                                           |
+|-----------------|-------------------------------------------------------|
+| `DATABASE_URL`  | PostgreSQL connection string                          |
+| `JWT_SECRET`    | Long random string for signing JWTs                   |
+| `JWT_EXPIRY`    | Token lifetime, e.g. `7d` (default)                   |
+| `NODE_ENV`      | Set to `production`                                   |
+| `PORT`          | HTTP port (default 8080)                              |
+| `SMTP_HOST`     | SMTP server hostname (leave empty to disable email)   |
+| `SMTP_PORT`     | SMTP port (default 587)                               |
+| `SMTP_SECURE`   | `true` for port 465, `false` for STARTTLS             |
+| `SMTP_USER`     | SMTP auth username                                    |
+| `SMTP_PASS`     | SMTP auth password / app password                     |
+| `SMTP_FROM`     | Sender display name + address                         |
+| `APP_URL`       | Frontend public URL — used in email "View Booking" links |
 
 ---
 
-*Last updated: 2026-05-10 (r8)*
+- **Separate login portals:** `/login` (players) and `/admin/login` (admins); `AdminLoginPage` validates role post-login and logs out non-admins; `ProtectedRoute adminOnly` redirects to `/admin/login`; `/auth/login` redirects to `/login` for backward compat
+- **Court ownership:** `Court.createdByAdminId` links each court to its creating admin; all admin mutations check ownership in service layer (ForbiddenException on mismatch); stats, bookings, and calendar are scoped to admin's own courts; frontend shows "VIEW ONLY" badge and hides action buttons for courts owned by other admins
+- **Email on booking:** `MailService` sends HTML confirmation email after `BookingsService.create()`; SMTP configured via env vars; email failures are non-fatal and logged; template matches dark neon brand; reusable for future email types via `sendMail()` private method
+
+*Last updated: 2026-06-18 (r9)*
