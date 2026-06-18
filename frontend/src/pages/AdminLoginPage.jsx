@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const { login }    = useAuth()
   const navigate     = useNavigate()
-  const location     = useLocation()
-  const from         = location.state?.from?.pathname || '/dashboard'
 
   const [form, setForm]       = useState({ username: '', password: '' })
   const [error, setError]     = useState('')
@@ -20,8 +18,12 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const user = await login(form.username, form.password)
-      // Admins who land on the player login are redirected to the admin panel
-      navigate(user.role === 'ADMIN' ? '/admin' : from, { replace: true })
+      if (user.role !== 'ADMIN') {
+        await import('../api/client').then(m => m.default.post('/auth/logout'))
+        setError('This portal is for administrators only. Please use the player login.')
+        return
+      }
+      navigate('/admin', { replace: true })
     } catch (err) {
       setError(err.message || 'Invalid username or password.')
     } finally {
@@ -32,24 +34,33 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+
         <div className="auth-logo">
-          <div className="brand-logo">
-            <img src="/images/ball.svg" alt="" width="22" height="22" />
+          <div className="brand-logo" style={{ background: 'rgba(200,255,0,0.15)', borderColor: 'rgba(200,255,0,0.3)' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="#c8ff00" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
           </div>
-          <span>PicklePro Courts</span>
+          <span>Admin Portal</span>
         </div>
 
-        <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-sub">Sign in to manage your bookings</p>
+        <div className="admin-login-badge">
+          <span>🔒 Restricted Access</span>
+        </div>
+
+        <h1 className="auth-title">Administrator Sign In</h1>
+        <p className="auth-sub">Access the PicklePro management console</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Admin Username</label>
             <input
               id="username" name="username" type="text"
-              placeholder="your_username"
+              placeholder="admin_username"
               value={form.username}
               onChange={handleChange}
               required autoComplete="username" autoFocus
@@ -71,17 +82,13 @@ export default function LoginPage() {
             style={{ marginTop: 8 }}
             disabled={loading}
           >
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Authenticating…' : 'Sign In to Admin Panel'}
           </button>
         </form>
 
-        <p className="auth-footer">
-          Don't have an account? <Link to="/auth/register">Create one free</Link>
-        </p>
-        <p className="auth-footer" style={{ marginTop: 4 }}>
-          <Link to="/admin/login" style={{ color: 'var(--text-3)', fontSize: 12 }}>
-            Administrator login →
-          </Link>
+        <p className="auth-footer" style={{ color: 'var(--text-3)', fontSize: 12 }}>
+          Not an admin?{' '}
+          <a href="/login" style={{ color: 'var(--text-2)' }}>Player login →</a>
         </p>
       </div>
     </div>

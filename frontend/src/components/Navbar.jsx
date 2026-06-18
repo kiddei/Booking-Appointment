@@ -17,10 +17,8 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Close mobile menu on route change
   useEffect(() => { setMenuOpen(false); setDropOpen(false) }, [location])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handler = (e) => { if (!dropRef.current?.contains(e.target)) setDropOpen(false) }
     document.addEventListener('mousedown', handler)
@@ -31,6 +29,8 @@ export default function Navbar() {
     await logout()
     navigate('/')
   }
+
+  const isAdmin = user?.role === 'ADMIN'
 
   return (
     <nav className={`navbar${scrolled ? ' scrolled' : ''}`} id="navbar">
@@ -58,23 +58,40 @@ export default function Navbar() {
 
           {user ? (
             <div className="nav-auth-group">
-              <Link to="/dashboard" className="nav-link">Dashboard</Link>
-              {user.role === 'ADMIN' && (
-                <Link to="/admin" className="nav-link nav-link--admin">Admin</Link>
+              {/* Players see Dashboard; Admins see Admin Panel as primary nav item */}
+              {isAdmin ? (
+                <Link to="/admin" className="nav-link nav-link--admin">Admin Panel</Link>
+              ) : (
+                <Link to="/dashboard" className="nav-link">Dashboard</Link>
               )}
+
               <div className="nav-user-menu" ref={dropRef}>
                 <button className="nav-user-btn" onClick={() => setDropOpen(o => !o)}>
                   <span className="user-avatar">{user.username[0].toUpperCase()}</span>
                   <span>{user.username}</span>
+                  {isAdmin && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, background: 'var(--neon)', color: '#000',
+                      borderRadius: 3, padding: '1px 5px', marginLeft: 4, letterSpacing: '0.5px',
+                    }}>
+                      ADMIN
+                    </span>
+                  )}
                   <svg width="11" height="11" viewBox="0 0 12 12">
                     <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
                   </svg>
                 </button>
                 <div className={`nav-dropdown${dropOpen ? ' open' : ''}`}>
-                  <Link to="/dashboard"    className="dropdown-item">My Bookings</Link>
-                  <Link to="/bookings/new" className="dropdown-item">New Booking</Link>
-                  {user.role === 'ADMIN' && (
-                    <Link to="/admin" className="dropdown-item dropdown-item--admin">Admin Panel</Link>
+                  {isAdmin ? (
+                    <>
+                      <Link to="/admin"           className="dropdown-item dropdown-item--admin">Admin Panel</Link>
+                      <Link to="/dashboard"        className="dropdown-item">My Bookings</Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/dashboard"        className="dropdown-item">My Bookings</Link>
+                      <Link to="/bookings/new"     className="dropdown-item">New Booking</Link>
+                    </>
                   )}
                   <div className="dropdown-divider" />
                   <button onClick={handleLogout} className="dropdown-item dropdown-item--logout">
@@ -85,7 +102,7 @@ export default function Navbar() {
             </div>
           ) : (
             <div className="nav-auth-group">
-              <Link to="/auth/login"    className="btn btn-nav-outline">Log In</Link>
+              <Link to="/login"         className="btn btn-nav-outline">Log In</Link>
               <Link to="/auth/register" className="btn btn-nav-neon">Sign Up</Link>
             </div>
           )}

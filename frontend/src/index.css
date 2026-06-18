@@ -366,6 +366,15 @@ ul { list-style: none; }
 .auth-footer a { color: var(--neon); font-weight: 500; }
 .auth-footer a:hover { text-decoration: underline; }
 
+.admin-login-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0 auto 16px; padding: 4px 12px;
+  background: rgba(200,255,0,0.08); border: 1px solid rgba(200,255,0,0.25);
+  border-radius: 20px; font-size: 11px; font-weight: 600;
+  color: var(--neon); letter-spacing: 1px; text-transform: uppercase;
+  width: fit-content;
+}
+
 /* ── Forms ──────────────────────────────────────────────── */
 .form-group { margin-bottom: 18px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

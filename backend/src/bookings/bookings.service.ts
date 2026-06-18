@@ -2,16 +2,20 @@ import {
   Injectable, NotFoundException, BadRequestException, ForbiddenException,
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { MailService } from '../mail/mail.service'
 import { CreateBookingDto } from './dto/create-booking.dto'
 import { SubmitReceiptDto } from './dto/submit-receipt.dto'
 
 @Injectable()
 export class BookingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mail:   MailService,
+  ) {}
 
   async findByUser(userId: number) {
     const rows = await this.prisma.booking.findMany({
-      where: { userId },
+      where:   { userId },
       include: { court: true },
       orderBy: { startTime: 'desc' },
     })
@@ -20,7 +24,7 @@ export class BookingsService {
 
   async findOne(id: number, userId: number) {
     const booking = await this.prisma.booking.findUnique({
-      where: { id },
+      where:   { id },
       include: { court: true },
     })
     if (!booking) throw new NotFoundException('Booking not found')
@@ -39,27 +43,55 @@ export class BookingsService {
     if (start < new Date())
       throw new BadRequestException('Cannot book a slot in the past')
 
-    // Block slots that are PENDING or CONFIRMED — avoids double-booking
+    // Block slots that are PENDING or CONFIRMED — avoids double-booking before payment
     const conflict = await this.prisma.booking.findFirst({
       where: {
-        courtId: dto.courtId,
+        courtId:     dto.courtId,
         courtNumber: dto.courtNumber,
-        status: { in: ['CONFIRMED', 'PENDING'] },
+        status:      { in: ['CONFIRMED', 'PENDING'] },
         AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
       },
     })
     if (conflict) throw new BadRequestException('Court is not available for the requested time slot')
 
     const booking = await this.prisma.booking.create({
-      data: { userId, courtId: dto.courtId, courtNumber: dto.courtNumber, startTime: start, endTime: end },
+      data:    { userId, courtId: dto.courtId, courtNumber: dto.courtNumber, startTime: start, endTime: end },
       include: { court: true },
     })
+
+    // Send confirmation email — failure must never break the booking
+    try {
+      const user = await this.prisma.user.findUnique({
+        where:  { id: userId },
+        select: { username: true, email: true },
+      })
+      if (user) {
+        const formatted = this.format(booking)
+        await this.mail.sendBookingConfirmation({
+          bookingId:     booking.id,
+          courtName:     booking.court.name,
+          courtLocation: booking.court.location  ?? '',
+          courtContact:  booking.court.contactNumber ?? '',
+          courtIndoor:   booking.court.indoor,
+          courtNumber:   booking.courtNumber,
+          bookingDate:   formatted.bookingDate,
+          startTime:     formatted.startTime,
+          endTime:       formatted.endTime,
+          totalAmount:   formatted.totalAmount,
+          status:        booking.status,
+          username:      user.username,
+          email:         user.email,
+          appUrl:        process.env.APP_URL ?? 'http://localhost:5173',
+        })
+      }
+    } catch { /* email errors are non-fatal */ }
+
     return this.format(booking)
   }
 
   async submitReceipt(id: number, dto: SubmitReceiptDto, userId: number) {
     const booking = await this.prisma.booking.findUnique({
-      where: { id },
+      where:   { id },
       include: { court: true },
     })
     if (!booking) throw new NotFoundException('Booking not found')
@@ -68,8 +100,8 @@ export class BookingsService {
       throw new BadRequestException('Only pending bookings can have a receipt submitted')
 
     const updated = await this.prisma.booking.update({
-      where: { id },
-      data: { paymentReceipt: dto.paymentReceipt },
+      where:   { id },
+      data:    { paymentReceipt: dto.paymentReceipt },
       include: { court: true },
     })
     return this.format(updated)
@@ -77,7 +109,7 @@ export class BookingsService {
 
   async cancel(id: number, userId: number) {
     const booking = await this.prisma.booking.findUnique({
-      where: { id },
+      where:   { id },
       include: { court: true },
     })
     if (!booking) throw new NotFoundException('Booking not found')
@@ -85,8 +117,8 @@ export class BookingsService {
     if (booking.status === 'CANCELLED') throw new BadRequestException('Booking already cancelled')
 
     const updated = await this.prisma.booking.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+      where:   { id },
+      data:    { status: 'CANCELLED' },
       include: { court: true },
     })
     return this.format(updated)
