@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx ts-node *)",
+      "Bash(node -e \"const n = require\\('nodemailer'\\); console.log\\(typeof n.createTransport, typeof n.createTestAccount, Object.keys\\(n\\).join\\(', '\\)\\)\")"
+    ]
+  }
+}

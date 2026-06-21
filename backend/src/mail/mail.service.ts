@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import * as nodemailer from 'nodemailer'
 
 export interface BookingEmailData {
@@ -19,11 +19,12 @@ export interface BookingEmailData {
 }
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name)
   private transporter: nodemailer.Transporter | null = null
+  private useEthereal = false
 
-  constructor() {
+  async onModuleInit() {
     const host = process.env.SMTP_HOST
     if (host) {
       this.transporter = nodemailer.createTransport({
@@ -35,6 +36,22 @@ export class MailService {
           pass: process.env.SMTP_PASS ?? '',
         },
       })
+      this.logger.log(`Mail service ready — SMTP host: ${host}`)
+    } else {
+      // No SMTP configured — spin up an Ethereal test account for dev/testing
+      try {
+        const testAccount = await nodemailer.createTestAccount()
+        this.transporter = nodemailer.createTransport({
+          host:   'smtp.ethereal.email',
+          port:   587,
+          secure: false,
+          auth: { user: testAccount.user, pass: testAccount.pass },
+        })
+        this.useEthereal = true
+        this.logger.log(`Mail service ready — Ethereal test account: ${testAccount.user}`)
+      } catch (err) {
+        this.logger.warn(`Could not create Ethereal test account: ${(err as Error).message}`)
+      }
     }
   }
 
@@ -52,17 +69,21 @@ export class MailService {
 
   private async sendMail(to: string, subject: string, html: string): Promise<void> {
     if (!this.transporter) {
-      this.logger.log(`[MAIL — no SMTP configured] To: ${to} | Subject: ${subject}`)
+      this.logger.warn(`[MAIL — no transporter] To: ${to} | Subject: ${subject}`)
       return
     }
     try {
-      await this.transporter.sendMail({
+      const info = await this.transporter.sendMail({
         from:    process.env.SMTP_FROM ?? '"PicklePro Courts" <no-reply@picklepro.app>',
         to,
         subject,
         html,
       })
-      this.logger.log(`Email sent to ${to}: ${subject}`)
+      if (this.useEthereal) {
+        this.logger.log(`[MAIL — Ethereal preview URL] ${nodemailer.getTestMessageUrl(info)}`)
+      } else {
+        this.logger.log(`Email sent to ${to} — ${subject}`)
+      }
     } catch (err) {
       this.logger.error(`Failed to send email to ${to}: ${(err as Error).message}`)
     }
