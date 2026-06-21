@@ -4,31 +4,18 @@ import { useAuth } from '../context/AuthContext'
 
 const PAGE_SIZE = 10
 
-/* ── Country dial-code list (Philippines default) ─────── */
-const COUNTRIES = [
-  { code: 'PH', flag: '🇵🇭', dial: '+63',  name: 'Philippines' },
-  { code: 'SG', flag: '🇸🇬', dial: '+65',  name: 'Singapore' },
-  { code: 'MY', flag: '🇲🇾', dial: '+60',  name: 'Malaysia' },
-  { code: 'ID', flag: '🇮🇩', dial: '+62',  name: 'Indonesia' },
-  { code: 'TH', flag: '🇹🇭', dial: '+66',  name: 'Thailand' },
-  { code: 'VN', flag: '🇻🇳', dial: '+84',  name: 'Vietnam' },
-  { code: 'JP', flag: '🇯🇵', dial: '+81',  name: 'Japan' },
-  { code: 'KR', flag: '🇰🇷', dial: '+82',  name: 'South Korea' },
-  { code: 'CN', flag: '🇨🇳', dial: '+86',  name: 'China' },
-  { code: 'IN', flag: '🇮🇳', dial: '+91',  name: 'India' },
-  { code: 'AU', flag: '🇦🇺', dial: '+61',  name: 'Australia' },
-  { code: 'GB', flag: '🇬🇧', dial: '+44',  name: 'United Kingdom' },
-  { code: 'US', flag: '🇺🇸', dial: '+1',   name: 'United States' },
-  { code: 'CA', flag: '🇨🇦', dial: '+1',   name: 'Canada' },
-  { code: 'AE', flag: '🇦🇪', dial: '+971', name: 'UAE' },
+/* ── User color palette for calendar ───────────────────── */
+const USER_COLORS = [
+  { bg: 'rgba(200,255,0,0.10)',   border: 'rgba(200,255,0,0.45)',   text: '#c8ff00'  },
+  { bg: 'rgba(100,180,255,0.10)', border: 'rgba(100,180,255,0.45)', text: '#64b4ff'  },
+  { bg: 'rgba(255,100,160,0.10)', border: 'rgba(255,100,160,0.45)', text: '#ff64a0'  },
+  { bg: 'rgba(255,165,0,0.10)',   border: 'rgba(255,165,0,0.45)',   text: '#ffa500'  },
+  { bg: 'rgba(160,100,255,0.10)', border: 'rgba(160,100,255,0.45)', text: '#a064ff'  },
+  { bg: 'rgba(50,210,140,0.10)',  border: 'rgba(50,210,140,0.45)',  text: '#32d28c'  },
+  { bg: 'rgba(255,80,80,0.10)',   border: 'rgba(255,80,80,0.45)',   text: '#ff5050'  },
+  { bg: 'rgba(0,210,210,0.10)',   border: 'rgba(0,210,210,0.45)',   text: '#00d2d2'  },
 ]
-
-function parsePhone(stored) {
-  if (!stored) return { dial: '+63', num: '' }
-  const match = COUNTRIES.find(c => stored.startsWith(c.dial + ' '))
-  if (match) return { dial: match.dial, num: stored.slice(match.dial.length + 1) }
-  return { dial: '+63', num: stored }
-}
+function getUserColor(userId) { return USER_COLORS[(userId ?? 0) % USER_COLORS.length] }
 
 /* ── Page shell ─────────────────────────────────────────── */
 export default function AdminPage() {
@@ -50,7 +37,6 @@ export default function AdminPage() {
             {[
               { key: 'overview',  label: 'Overview'  },
               { key: 'courts',    label: 'Courts'    },
-              { key: 'users',     label: 'Users'     },
               { key: 'bookings',  label: 'Bookings'  },
               { key: 'payments',  label: 'Payments'  },
             ].map(({ key, label }) => (
@@ -66,7 +52,6 @@ export default function AdminPage() {
 
           {tab === 'overview'  && <OverviewTab />}
           {tab === 'courts'    && <CourtsTab adminId={user?.id} />}
-          {tab === 'users'     && <UsersTab />}
           {tab === 'bookings'  && <BookingsTab />}
           {tab === 'payments'  && <PaymentsTab />}
         </div>
@@ -270,7 +255,6 @@ const HOUR_OPTIONS = Array.from({ length: 19 }, (_, i) => {
 function CourtModal({ court, onClose, onSaved }) {
   const isEdit = Boolean(court)
 
-  const initPhone = parsePhone(court?.contactNumber ?? '')
   const [form,    setForm]    = useState(court ? {
     name:          court.name,
     description:   court.description   ?? '',
@@ -280,12 +264,10 @@ function CourtModal({ court, onClose, onSaved }) {
     hourlyRate:    court.hourlyRate,
     indoor:        court.indoor,
     totalCourts:   court.totalCourts   ?? 1,
-    contactNumber: court.contactNumber ?? '',
+    contactNumber: (court.contactNumber ?? '').replace(/\D/g, ''),
     openTime:      court.openTime      ?? '07:00',
     closeTime:     court.closeTime     ?? '22:00',
   } : EMPTY_COURT)
-  const [dialCode, setDialCode] = useState(initPhone.dial)
-  const [phoneNum, setPhoneNum] = useState(initPhone.num)
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
   const qrInputRef = useRef(null)
@@ -306,17 +288,18 @@ function CourtModal({ court, onClose, onSaved }) {
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
-    if (!phoneNum.trim()) { setError('Contact number is required.'); return }
+    if (!/^\d{11}$/.test(form.contactNumber)) {
+      setError('Contact number must be exactly 11 digits (e.g. 09171234567).')
+      return
+    }
     if (parseInt(form.closeTime) <= parseInt(form.openTime)) {
       setError('Closing time must be later than opening time.')
       return
     }
     setLoading(true)
-    const contactNumber = `${dialCode} ${phoneNum.trim()}`
     try {
       const payload = {
         ...form,
-        contactNumber,
         hourlyRate:  Number(form.hourlyRate),
         totalCourts: Number(form.totalCourts),
       }
@@ -381,25 +364,29 @@ function CourtModal({ court, onClose, onSaved }) {
           </div>
 
           <div className="form-group">
-            <label>Contact Number *</label>
-            <div className="phone-input">
-              <select
-                className="phone-input__select"
-                value={dialCode}
-                onChange={e => setDialCode(e.target.value)}
-              >
-                {COUNTRIES.map(c => (
-                  <option key={c.code} value={c.dial}>{c.flag} {c.dial}</option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                className="phone-input__number"
-                placeholder="912 345 6789"
-                value={phoneNum}
-                onChange={e => setPhoneNum(e.target.value)}
-              />
-            </div>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span>Contact Number *</span>
+              <span className={`phone-digit-count${
+                form.contactNumber.length > 0 && form.contactNumber.length !== 11
+                  ? ' phone-digit-count--error'
+                  : form.contactNumber.length === 11
+                    ? ' phone-digit-count--ok'
+                    : ''
+              }`}>{form.contactNumber.length}/11</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="\d*"
+              maxLength={11}
+              placeholder="09171234567"
+              value={form.contactNumber}
+              className={form.contactNumber.length > 0 && form.contactNumber.length !== 11 ? 'input-invalid' : ''}
+              onChange={e => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 11)
+                setForm(f => ({ ...f, contactNumber: digits }))
+              }}
+            />
           </div>
 
           <div className="form-row">
@@ -495,108 +482,31 @@ function CourtModal({ court, onClose, onSaved }) {
   )
 }
 
-/* ── Users Tab ──────────────────────────────────────────── */
-function UsersTab() {
-  const [users,   setUsers]   = useState([])
-  const [loading, setLoading] = useState(true)
-  const [page,    setPage]    = useState(1)
-
-  useEffect(() => {
-    client.get('/admin/users')
-      .then(r => setUsers(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const handleRoleToggle = async (user) => {
-    const newRole = user.role === 'ADMIN' ? 'PLAYER' : 'ADMIN'
-    if (!window.confirm(`Change ${user.username}'s role to ${newRole}?`)) return
-    try {
-      const res = await client.patch(`/admin/users/${user.id}/role`, { role: newRole })
-      setUsers(us => us.map(u => u.id === user.id ? { ...u, ...res.data } : u))
-    } catch {
-      alert('Could not update role.')
+/* ── Bookings Tab ───────────────────────────────────────── */
+function groupBookings(bookings) {
+  const groups = new Map()
+  bookings.forEach(b => {
+    const key = `${b.userId}-${b.courtId}-${b.bookingDate}-${b.startTime}-${b.endTime}`
+    if (groups.has(key)) {
+      const g = groups.get(key)
+      g.ids.push(b.id)
+      g.courtNumbers.push(b.courtNumber)
+      g.totalAmount = (Number(g.totalAmount) + Number(b.totalAmount)).toFixed(2)
+      g.bookings.push(b)
+    } else {
+      groups.set(key, {
+        key, ids: [b.id], status: b.status,
+        bookingDate: b.bookingDate, startTime: b.startTime, endTime: b.endTime,
+        courtName: b.courtName, courtNumbers: [b.courtNumber], totalAmount: b.totalAmount,
+        username: b.username, userEmail: b.userEmail,
+        userId: b.userId, courtId: b.courtId, createdAt: b.createdAt,
+        bookings: [b],
+      })
     }
-  }
-
-  const handleToggleActive = async (user) => {
-    const action = user.active ? 'disable' : 'enable'
-    const label  = user.active ? 'Disable' : 'Enable'
-    if (!window.confirm(`${label} account for "${user.username}"?`)) return
-    try {
-      const res = await client.patch(`/admin/users/${user.id}/${action}`)
-      setUsers(us => us.map(u => u.id === user.id ? { ...u, ...res.data } : u))
-    } catch {
-      alert(`Could not ${action} user.`)
-    }
-  }
-
-  const totalPages = Math.ceil(users.length / PAGE_SIZE)
-  const pageUsers  = users.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  return (
-    <div className="table-card">
-      {loading ? (
-        <div className="page-loading"><div className="loading-spinner" /></div>
-      ) : users.length === 0 ? (
-        <div className="empty-state"><h3>No users found.</h3></div>
-      ) : (
-        <>
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Bookings</th>
-                  <th>Joined</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageUsers.map(u => (
-                  <tr key={u.id} className={!u.active ? 'row-inactive' : ''}>
-                    <td className="td-primary">{u.username}</td>
-                    <td className="td-muted">{u.email}</td>
-                    <td>
-                      <span className={`role-badge role-badge--${u.role.toLowerCase()}`}>{u.role}</span>
-                    </td>
-                    <td className="td-center">{u._count?.bookings ?? 0}</td>
-                    <td className="td-muted">{formatDate(u.createdAt)}</td>
-                    <td><ActiveBadge active={u.active} /></td>
-                    <td>
-                      <div className="td-actions">
-                        <button
-                          className="btn-icon btn-icon--edit"
-                          onClick={() => handleRoleToggle(u)}
-                          title={u.role === 'ADMIN' ? 'Demote to Player' : 'Promote to Admin'}
-                        >
-                          ⇅
-                        </button>
-                        <button
-                          className={`btn-icon ${u.active ? 'btn-icon--danger' : 'btn-icon--success'}`}
-                          onClick={() => handleToggleActive(u)}
-                          title={u.active ? 'Disable account' : 'Enable account'}
-                        >
-                          {u.active ? '✕' : '✓'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Pagination page={page} setPage={setPage} totalPages={totalPages} />
-        </>
-      )}
-    </div>
-  )
+  })
+  return [...groups.values()]
 }
 
-/* ── Bookings Tab ───────────────────────────────────────── */
 function BookingsTab() {
   const [bookings,        setBookings]        = useState([])
   const [courts,          setCourts]          = useState([])
@@ -605,8 +515,10 @@ function BookingsTab() {
   const [sortKey,         setSortKey]         = useState('createdAt')
   const [sortDir,         setSortDir]         = useState('desc')
   const [page,            setPage]            = useState(1)
+  const [expanded,        setExpanded]        = useState(new Set())
   const [calModal,        setCalModal]        = useState(null)
   const [selectedCourtId, setSelectedCourtId] = useState(null)
+  const [calendarDate,    setCalendarDate]    = useState(() => localDateISO(new Date()))
 
   useEffect(() => {
     Promise.all([
@@ -628,16 +540,6 @@ function BookingsTab() {
 
   const selectedCourt = activeCourts.find(c => c.id === selectedCourtId) ?? null
 
-  const handleCancel = async (id) => {
-    if (!window.confirm('Cancel this booking?')) return
-    try {
-      const res = await client.patch(`/admin/bookings/${id}/cancel`)
-      setBookings(bs => bs.map(b => b.id === id ? res.data : b))
-    } catch {
-      alert('Could not cancel booking.')
-    }
-  }
-
   const toggleSort = key => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
@@ -645,31 +547,44 @@ function BookingsTab() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return bookings
-      .filter(b => !q ||
-        String(b.id).includes(q) ||
-        b.username.toLowerCase().includes(q) ||
-        b.userEmail.toLowerCase().includes(q) ||
-        b.courtName.toLowerCase().includes(q) ||
-        b.status.toLowerCase().includes(q)
-      )
-      .sort((a, b) => {
-        let va = a[sortKey], vb = b[sortKey]
-        if (sortKey === 'totalAmount') { va = Number(va); vb = Number(vb) }
-        if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
-        return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
-      })
-  }, [bookings, search, sortKey, sortDir])
+    return bookings.filter(b => !q ||
+      String(b.id).includes(q) ||
+      b.username.toLowerCase().includes(q) ||
+      b.userEmail.toLowerCase().includes(q) ||
+      b.courtName.toLowerCase().includes(q) ||
+      b.status.toLowerCase().includes(q)
+    )
+  }, [bookings, search])
+
+  const groups = useMemo(() => {
+    const gs = groupBookings(filtered)
+    return gs.sort((a, b) => {
+      let va, vb
+      if (sortKey === 'id') { va = a.ids[0]; vb = b.ids[0] }
+      else if (sortKey === 'totalAmount') { va = Number(a.totalAmount); vb = Number(b.totalAmount) }
+      else { va = a[sortKey] ?? ''; vb = b[sortKey] ?? '' }
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
+    })
+  }, [filtered, sortKey, sortDir])
 
   useEffect(() => { setPage(1) }, [search, sortKey, sortDir])
 
-  const totalPages   = Math.ceil(filtered.length / PAGE_SIZE)
-  const pageBookings = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages  = Math.ceil(groups.length / PAGE_SIZE)
+  const pageGroups  = groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const todayISO      = new Date().toISOString().split('T')[0]
+  const todayISO      = localDateISO(new Date())
+  const isCalToday    = calendarDate === todayISO
+
+  const navigateCalDate = (delta) => {
+    const [y, m, d] = calendarDate.split('-').map(Number)
+    const date = new Date(y, m - 1, d + delta)
+    setCalendarDate(localDateISO(date))
+  }
+
   const todayBookings = bookings.filter(b =>
     (b.status === 'CONFIRMED' || b.status === 'PENDING') &&
-    b.bookingDate === todayISO &&
+    b.bookingDate === calendarDate &&
     (selectedCourtId ? b.courtId === selectedCourtId : true)
   )
 
@@ -682,10 +597,16 @@ function BookingsTab() {
   const getBookingAt = (hour, cn) =>
     todayBookings.find(b => b.courtNumber === cn && parseInt(b.startTime) === hour) ?? null
 
-  const isCovered = (hour, cn) =>
-    todayBookings.some(b =>
-      b.courtNumber === cn && parseInt(b.startTime) < hour && parseInt(b.endTime) > hour
-    )
+  const getCoveringBooking = (hour, cn) =>
+    todayBookings.find(b =>
+      b.courtNumber === cn && parseInt(b.startTime) < hour && parseInt(b.endTime) >= hour
+    ) ?? null
+
+  const calendarUsers = useMemo(() => {
+    const seen = new Map()
+    todayBookings.forEach(b => { if (!seen.has(b.userId)) seen.set(b.userId, { userId: b.userId, username: b.username }) })
+    return [...seen.values()].sort((a, b) => a.username.localeCompare(b.username))
+  }, [todayBookings])
 
   const fmtHour = h => h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`
 
@@ -697,12 +618,45 @@ function BookingsTab() {
 
   return (
     <>
-      {/* ── Today's Schedule Calendar ── */}
+      {/* ── Schedule Calendar ── */}
       <div className="today-calendar">
         <div className="today-calendar__header">
-          Today's Schedule —{' '}
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          {isCalToday ? "Today's Schedule" : 'Schedule'} —{' '}
+          {new Date(calendarDate + 'T00:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+          })}
         </div>
+
+        {/* Date navigation */}
+        <div className="cal-date-nav">
+          <button className="cal-nav-btn" onClick={() => navigateCalDate(-1)} title="Previous day">← Prev</button>
+          <button
+            className={`cal-nav-btn${isCalToday ? ' cal-nav-btn--active' : ''}`}
+            onClick={() => setCalendarDate(todayISO)}
+          >Today</button>
+          <input
+            type="date"
+            className="cal-date-input"
+            value={calendarDate}
+            onChange={e => setCalendarDate(e.target.value)}
+          />
+          <button className="cal-nav-btn" onClick={() => navigateCalDate(1)} title="Next day">Next →</button>
+        </div>
+
+        {/* User color legend */}
+        {calendarUsers.length > 0 && (
+          <div className="cal-legend">
+            {calendarUsers.map(u => {
+              const c = getUserColor(u.userId)
+              return (
+                <div key={u.userId} className="cal-legend__item">
+                  <span className="cal-legend__dot" style={{ background: c.border }} />
+                  <span className="cal-legend__name">{u.username}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Location selector / back button */}
         {multiLocation && (
@@ -752,16 +706,22 @@ function BookingsTab() {
                 <Fragment key={hour}>
                   <div className="cal-grid__hour-label">{fmtHour(hour)}</div>
                   {courtNums.map(cn => {
-                    const booking = getBookingAt(hour, cn)
-                    const covered = !booking && isCovered(hour, cn)
+                    const booking  = getBookingAt(hour, cn)
+                    const covering = !booking ? getCoveringBooking(hour, cn) : null
+                    const uc       = booking ? getUserColor(booking.userId) : covering ? getUserColor(covering.userId) : null
                     return (
                       <div
                         key={cn}
-                        className={`cal-grid__cell${booking ? ' cal-cell--booked' : covered ? ' cal-cell--covered' : ''}`}
+                        className={`cal-grid__cell${booking ? ' cal-cell--booked' : covering ? ' cal-cell--covered' : ''}`}
+                        style={covering ? { background: uc.bg, borderLeft: `3px solid ${uc.border}` } : undefined}
                       >
                         {booking && (
                           <button
-                            className={`cal-booking cal-booking--${booking.status.toLowerCase()}`}
+                            className="cal-booking"
+                            style={{
+                              background: uc.bg, borderColor: uc.border, color: uc.text,
+                              ...(booking.status === 'PENDING' ? { borderStyle: 'dashed' } : {}),
+                            }}
                             onClick={() => setCalModal(booking)}
                           >
                             <span className="cal-booking__user">{booking.username}</span>
@@ -793,13 +753,13 @@ function BookingsTab() {
             </button>
           )}
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>
-            {filtered.length} of {bookings.length}
+            {groups.length} session{groups.length !== 1 ? 's' : ''} · {filtered.length} booking{filtered.length !== 1 ? 's' : ''}
           </span>
         </div>
 
         {loading ? (
           <div className="page-loading"><div className="loading-spinner" /></div>
-        ) : filtered.length === 0 ? (
+        ) : groups.length === 0 ? (
           <div className="empty-state"><h3>{search ? 'No results found.' : 'No bookings yet.'}</h3></div>
         ) : (
           <>
@@ -818,33 +778,69 @@ function BookingsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageBookings.map(b => (
-                    <tr key={b.id}>
-                      <td className="td-muted">{b.id}</td>
-                      <td>
-                        <span className="td-primary">{b.username}</span>
-                        <span className="td-sub">{b.userEmail}</span>
-                      </td>
-                      <td>
-                        <span className="td-primary">{b.courtName}</span>
-                        {b.courtNumber && <span className="td-sub">Court {b.courtNumber}</span>}
-                      </td>
-                      <td className="td-muted">{formatDate(b.bookingDate)}</td>
-                      <td className="td-muted">{formatTime(b.startTime)} – {formatTime(b.endTime)}</td>
-                      <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
-                      <td><StatusBadge status={b.status} /></td>
-                      <td>
-                        <div className="td-actions">
-                          {b.status === 'PENDING' && (
-                            <button className="btn-icon btn-icon--success" onClick={() => handleConfirm(b.id, setBookings)} title="Confirm booking">✓</button>
-                          )}
-                          {(b.status === 'CONFIRMED' || b.status === 'PENDING') && (
-                            <button className="btn-icon btn-icon--danger" onClick={() => handleCancel(b.id)} title="Cancel booking">✕</button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {pageGroups.map(g => {
+                    const isMulti    = g.ids.length > 1
+                    const isExpanded = expanded.has(g.key)
+                    const toggleExpand = () => setExpanded(prev => {
+                      const next = new Set(prev)
+                      if (next.has(g.key)) next.delete(g.key); else next.add(g.key)
+                      return next
+                    })
+                    const courtLabel = isMulti
+                      ? `Courts ${[...g.courtNumbers].sort((a, b) => a - b).join(', ')}`
+                      : `Court ${g.courtNumbers[0]}`
+                    return (
+                      <Fragment key={g.key}>
+                        <tr>
+                          <td className="td-muted">
+                            {isMulti && (
+                              <button className="expand-toggle" onClick={toggleExpand} title={isExpanded ? 'Collapse' : 'Expand'}>
+                                {isExpanded ? '▼' : '▶'}
+                              </button>
+                            )}{' '}
+                            {isMulti ? `#${g.ids[0]} +${g.ids.length - 1}` : `#${g.ids[0]}`}
+                          </td>
+                          <td>
+                            <span className="td-primary">{g.username}</span>
+                            <span className="td-sub">{g.userEmail}</span>
+                          </td>
+                          <td>
+                            <span className="td-primary">{g.courtName}</span>
+                            <span className="td-sub">{courtLabel}</span>
+                          </td>
+                          <td className="td-muted">{formatDate(g.bookingDate)}</td>
+                          <td className="td-muted">{formatTime(g.startTime)} – {formatTime(g.endTime)}</td>
+                          <td className="td-accent">₱{Number(g.totalAmount).toFixed(2)}</td>
+                          <td><StatusBadge status={g.status} /></td>
+                          <td>
+                            <div className="td-actions">
+                              {g.status === 'PENDING' && (
+                                <button className="btn-icon btn-icon--success"
+                                  onClick={() => handleConfirmGroup(g.ids, setBookings)}
+                                  title={isMulti ? `Confirm all ${g.ids.length} courts` : 'Confirm booking'}>✓</button>
+                              )}
+                              {(g.status === 'CONFIRMED' || g.status === 'PENDING') && (
+                                <button className="btn-icon btn-icon--danger"
+                                  onClick={() => handleCancelGroup(g.ids, setBookings)}
+                                  title={isMulti ? `Cancel all ${g.ids.length} courts` : 'Cancel booking'}>✕</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {isMulti && isExpanded && g.bookings.map(b => (
+                          <tr key={b.id} className="booking-sub-row">
+                            <td className="td-muted" style={{ paddingLeft: 28 }}>#{b.id}</td>
+                            <td />
+                            <td><span className="td-sub">Court {b.courtNumber}</span></td>
+                            <td /><td />
+                            <td className="td-accent">₱{Number(b.totalAmount).toFixed(2)}</td>
+                            <td><StatusBadge status={b.status} /></td>
+                            <td />
+                          </tr>
+                        ))}
+                      </Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1091,6 +1087,13 @@ function PaymentsTab() {
 
 /* ── Shared helpers ─────────────────────────────────────── */
 
+function localDateISO(date) {
+  const y  = date.getFullYear()
+  const m  = String(date.getMonth() + 1).padStart(2, '0')
+  const d  = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 async function handleConfirm(id, setBookings) {
   if (!window.confirm('Confirm this booking?')) return
   try {
@@ -1099,6 +1102,30 @@ async function handleConfirm(id, setBookings) {
   } catch {
     alert('Could not confirm booking.')
   }
+}
+
+async function handleConfirmGroup(ids, setBookings) {
+  if (!window.confirm(`Confirm this booking${ids.length > 1 ? ` (${ids.length} courts)` : ''}?`)) return
+  try {
+    const results = await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/confirm`)))
+    const confirmed = results.filter(r => r.status === 'fulfilled').map(r => r.value.data)
+    if (confirmed.length > 0) {
+      const map = new Map(confirmed.map(b => [b.id, b]))
+      setBookings(bs => bs.map(b => map.has(b.id) ? map.get(b.id) : b))
+    }
+  } catch { alert('Could not confirm booking.') }
+}
+
+async function handleCancelGroup(ids, setBookings) {
+  if (!window.confirm(`Cancel this booking${ids.length > 1 ? ` (${ids.length} courts)` : ''}?`)) return
+  try {
+    const results = await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/cancel`)))
+    const cancelled = results.filter(r => r.status === 'fulfilled').map(r => r.value.data)
+    if (cancelled.length > 0) {
+      const map = new Map(cancelled.map(b => [b.id, b]))
+      setBookings(bs => bs.map(b => map.has(b.id) ? map.get(b.id) : b))
+    }
+  } catch { alert('Could not cancel booking.') }
 }
 
 function Pagination({ page, setPage, totalPages }) {

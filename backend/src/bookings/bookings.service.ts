@@ -1,17 +1,15 @@
 import {
-  Injectable, NotFoundException, BadRequestException, ForbiddenException,
+  Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException,
 } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { MailService } from '../mail/mail.service'
 import { CreateBookingDto } from './dto/create-booking.dto'
 import { SubmitReceiptDto } from './dto/submit-receipt.dto'
 
 @Injectable()
 export class BookingsService {
-  constructor(
-    private prisma: PrismaService,
-    private mail:   MailService,
-  ) {}
+  private readonly logger = new Logger(BookingsService.name)
+
+  constructor(private prisma: PrismaService) {}
 
   async findByUser(userId: number) {
     const rows = await this.prisma.booking.findMany({
@@ -58,33 +56,6 @@ export class BookingsService {
       data:    { userId, courtId: dto.courtId, courtNumber: dto.courtNumber, startTime: start, endTime: end },
       include: { court: true },
     })
-
-    // Send confirmation email — failure must never break the booking
-    try {
-      const user = await this.prisma.user.findUnique({
-        where:  { id: userId },
-        select: { username: true, email: true },
-      })
-      if (user) {
-        const formatted = this.format(booking)
-        await this.mail.sendBookingConfirmation({
-          bookingId:     booking.id,
-          courtName:     booking.court.name,
-          courtLocation: booking.court.location  ?? '',
-          courtContact:  booking.court.contactNumber ?? '',
-          courtIndoor:   booking.court.indoor,
-          courtNumber:   booking.courtNumber,
-          bookingDate:   formatted.bookingDate,
-          startTime:     formatted.startTime,
-          endTime:       formatted.endTime,
-          totalAmount:   formatted.totalAmount,
-          status:        booking.status,
-          username:      user.username,
-          email:         user.email,
-          appUrl:        process.env.APP_URL ?? 'http://localhost:5173',
-        })
-      }
-    } catch { /* email errors are non-fatal */ }
 
     return this.format(booking)
   }

@@ -53,31 +53,6 @@ export class AdminController {
     return this.admin.reactivateCourt(id, user.id)
   }
 
-  // ── Users ────────────────────────────────────────────────
-
-  @Get('users')
-  getUsers() {
-    return this.admin.findAllUsers()
-  }
-
-  @Patch('users/:id/role')
-  updateUserRole(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('role') role: 'PLAYER' | 'ADMIN',
-  ) {
-    return this.admin.updateUserRole(id, role)
-  }
-
-  @Patch('users/:id/disable')
-  disableUser(@Param('id', ParseIntPipe) id: number) {
-    return this.admin.toggleUserActive(id, false)
-  }
-
-  @Patch('users/:id/enable')
-  enableUser(@Param('id', ParseIntPipe) id: number) {
-    return this.admin.toggleUserActive(id, true)
-  }
-
   // ── Bookings ─────────────────────────────────────────────
 
   @Get('bookings')

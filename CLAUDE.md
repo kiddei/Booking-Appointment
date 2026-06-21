@@ -39,7 +39,7 @@ Booking-Appointment/
 │   │   ├── components/        Navbar, Footer, ProtectedRoute, DatePicker, TimeSlotPicker
 │   │   ├── pages/             HomePage, LoginPage, AdminLoginPage, RegisterPage,
 │   │   │                      CourtsPage, DashboardPage, BookingPage,
-│   │   │                      BookingDetailPage, AdminPage
+│   │   │                      BookingDetailPage, AdminPage, SuperAdminPage
 │   │   ├── App.jsx            Routes + AuthProvider
 │   │   ├── main.jsx
 │   │   └── index.css          All styles (dark theme, design tokens)
@@ -68,9 +68,13 @@ Booking-Appointment/
     │   ├── mail/              MailModule — @Global(); MailService (nodemailer)
     │   │   ├── mail.service.ts       sendBookingConfirmation(); graceful SMTP failure logging
     │   │   └── mail.module.ts        @Global() — no explicit import needed in BookingsModule
-    │   └── admin/             AdminModule — /api/admin (ADMIN only)
-    │       ├── admin.service.ts      All admin business logic; scoped to admin's owned courts
-    │       └── admin.controller.ts   Thin HTTP layer; passes @CurrentUser() to every service call
+    │   ├── admin/             AdminModule — /api/admin (ADMIN + SUPER_ADMIN via role hierarchy)
+    │   │   ├── admin.service.ts      All admin business logic; scoped to admin's owned courts
+    │   │   └── admin.controller.ts   Thin HTTP layer; passes @CurrentUser() to every service call
+    │   └── superadmin/        SuperAdminModule — /api/superadmin (SUPER_ADMIN only)
+    │       ├── superadmin.service.ts  Global CRUD: all users, courts, bookings; no ownership scope
+    │       ├── superadmin.controller.ts
+    │       └── dto/           create-user.dto.ts, update-user.dto.ts
     ├── .env                   Local env (git-ignored)
     ├── .env.example           Template
     ├── package.json
@@ -98,8 +102,9 @@ Booking-Appointment/
 - **Court ownership:** Admin service methods check `court.createdByAdminId === adminId`; throws `ForbiddenException` on mismatch. Enforced in service layer — even direct API calls are blocked.
 - **Password fields** are never returned from services — use `select` to exclude `passwordHash`.
 - **Disabled users** (`User.active = false`) are rejected at login with a clear error message.
-- **Frontend role check:** `ProtectedRoute` checks `user.role === 'ADMIN'` (not `'ROLE_ADMIN'`).
-- **Separate login portals:** `/login` for players, `/admin/login` for admins; `AdminLoginPage` rejects non-admin roles after successful auth and immediately logs them out. `ProtectedRoute adminOnly` redirects unauthenticated users to `/admin/login` (not `/login`).
+- **Role hierarchy:** `SUPER_ADMIN (2) > ADMIN (1) > PLAYER (0)` — enforced in `RolesGuard`; SUPER_ADMIN passes any `@Roles('ADMIN')` check automatically.
+- **Frontend role check:** `ProtectedRoute` uses `['ADMIN','SUPER_ADMIN']` for `adminOnly`; only `'SUPER_ADMIN'` for `superAdminOnly`.
+- **Separate login portals:** `/login` for players, `/admin/login` for admins and super admins; `AdminLoginPage` rejects PLAYER role, routes ADMIN→`/admin` and SUPER_ADMIN→`/superadmin`. `ProtectedRoute adminOnly` redirects unauthenticated users to `/admin/login`.
 - **Email failures are non-fatal:** try/catch wraps mail send in `BookingsService.create()`; booking succeeds even if SMTP is misconfigured.
 
 ### REST API Contract
@@ -124,21 +129,30 @@ Booking-Appointment/
 | PATCH  | `/api/admin/courts/{id}`      | Admin | Update court details |
 | PATCH  | `/api/admin/courts/{id}/deactivate` | Admin | Deactivate court |
 | PATCH  | `/api/admin/courts/{id}/reactivate` | Admin | Reactivate court |
-| GET    | `/api/admin/users`            | Admin | All users |
-| PATCH  | `/api/admin/users/{id}/role`  | Admin | Change role (PLAYER ↔ ADMIN) |
-| PATCH  | `/api/admin/users/{id}/disable` | Admin | Disable user account |
-| PATCH  | `/api/admin/users/{id}/enable`  | Admin | Enable user account |
 | GET    | `/api/admin/bookings`         | Admin | All bookings |
 | GET    | `/api/admin/bookings/pending` | Admin | Pending bookings awaiting payment review |
 | PATCH  | `/api/admin/bookings/{id}/confirm` | Admin | Confirm a pending booking |
 | PATCH  | `/api/admin/bookings/{id}/cancel` | Admin | Cancel any booking |
+| GET    | `/api/superadmin/stats`       | Super Admin | Global stats (all courts, users, revenue) |
+| GET    | `/api/superadmin/users`       | Super Admin | All users |
+| POST   | `/api/superadmin/users`       | Super Admin | Create user (any role) |
+| PATCH  | `/api/superadmin/users/{id}`  | Super Admin | Update user details/role/password/active |
+| DELETE | `/api/superadmin/users/{id}`  | Super Admin | Delete user (self + last SA protected) |
+| PATCH  | `/api/superadmin/users/{id}/role` | Super Admin | Change any role incl. SUPER_ADMIN |
+| PATCH  | `/api/superadmin/users/{id}/disable` | Super Admin | Disable user |
+| PATCH  | `/api/superadmin/users/{id}/enable` | Super Admin | Enable user |
+| GET    | `/api/superadmin/courts`      | Super Admin | All courts with owning admin info |
+| GET    | `/api/superadmin/bookings`    | Super Admin | All bookings globally |
+| PATCH  | `/api/superadmin/bookings/{id}/confirm` | Super Admin | Confirm any booking |
+| PATCH  | `/api/superadmin/bookings/{id}/cancel`  | Super Admin | Cancel any booking |
 
 ### React / Frontend
 - Auth state lives in `AuthContext` — `login()`, `logout()`, `register()`, `user`, `loading`.
 - All API calls go through `src/api/client.js` (Axios, `withCredentials: true`).
 - Login sends JSON `{ username, password }` — no FormData.
-- Protected routes wrap children in `<ProtectedRoute>` or `<ProtectedRoute adminOnly>`.
-- `ProtectedRoute adminOnly` redirects unauthenticated users to `/admin/login`; regular routes redirect to `/login`.
+- Protected routes wrap children in `<ProtectedRoute>`, `<ProtectedRoute adminOnly>`, or `<ProtectedRoute superAdminOnly>`.
+- `ProtectedRoute adminOnly` allows ADMIN and SUPER_ADMIN; `superAdminOnly` allows only SUPER_ADMIN.
+- `ProtectedRoute adminOnly/superAdminOnly` redirects unauthenticated users to `/admin/login`; regular routes redirect to `/login`.
 - `/auth/login` redirects to `/login` (backward compat via React Router `<Navigate>`).
 - CSS design tokens live in `:root` in `index.css` — change colors there, not inline.
 
@@ -150,7 +164,7 @@ Booking-Appointment/
 - **Currency:** Philippine Peso `₱` — used everywhere rates and totals are displayed
 - **Court type selector:** uses a two-button segment control (`.court-type-toggle`) — not a checkbox; buttons toggle `form.indoor` directly
 - **GCash QR:** stored as base64 `TEXT` in `Court.gcashQrCode`; backend body limit raised to 5 MB in `main.ts`; UI shows a dashed dropzone with a `+` circle when empty, and a 120×120 preview with Replace/Remove when set
-- **Phone input:** `.phone-input` is always full-width (not inside a `form-row`) so the flag select and number field have adequate space
+- **Contact number:** stored as exactly 11 digits (e.g. `09171234567`); validated with `@Matches(/^\d{11}$/)` in both DTOs; frontend strips non-digits on input, shows `X/11` counter with red border when invalid; old international format (`+63 9xxxxxxxx`) is rejected
 - **Playable courts:** `Court.totalCourts` controls how many individual courts (1–20) are under a location; `Booking.courtNumber` records which one was booked; conflict check scopes to `(courtId, courtNumber)` pair; `PlayableCourtGrid` renders SVG top-down court cards with Available/Busy/Full indicators
 - **Booking flow:** 4-step progressive disclosure — (1) select location + date, (2) `PlayableCourtGrid` appears, (3) `TimeSlotPicker` appears once a court is chosen, (4) after "Confirm Booking" succeeds, a payment section (GCash QR + receipt upload) appears inline on the same page as Step 4; `courtNumber` is required in `POST /bookings`; a single receipt upload applies to all courts booked via `Promise.allSettled` over each booking ID
 - **Payment flow:** New bookings default to `PENDING`; after booking creation user stays on BookingPage for inline GCash QR + receipt upload (Step 4); "Pay later" navigates to dashboard; after receipt upload shows "Under Review" on BookingDetailPage; admin confirms via Payments tab card → status → `CONFIRMED`
@@ -170,7 +184,7 @@ Booking-Appointment/
 | prod        | PostgreSQL             | `prisma migrate deploy`         |
 
 **Models:**
-- `User`: `id`, `username`, `email`, `passwordHash`, `role (PLAYER|ADMIN)`, `active`, `createdAt`
+- `User`: `id`, `username`, `email`, `passwordHash`, `role (PLAYER|ADMIN|SUPER_ADMIN)`, `active`, `createdAt`
 - `Court`: `id`, `name`, `description`, `location`, `ownerName`, `contactNumber`, `gcashQrCode`, `indoor`, `totalCourts`, `maxPlayers`, `hourlyRate`, `openTime`, `closeTime`, `active`, `createdByAdminId Int?`, `createdAt`
 - `Booking`: `id`, `userId`, `courtId`, `courtNumber`, `startTime`, `endTime`, `status (PENDING|CONFIRMED|CANCELLED)`, `paymentReceipt String?`, `createdAt`
 
@@ -248,14 +262,24 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 - [x] Playable court selection grid (SVG top-down cards, Available/Busy/Full, per-court booking)
 - [ ] Court availability full calendar view (FullCalendar, multi-day)
 - [x] Admin court management — add, edit, deactivate, reactivate
-- [x] Admin user management — role toggle (PLAYER ↔ ADMIN), enable/disable accounts
 - [x] Admin booking management — view all, cancel any booking
 - [x] Admin overview stats — courts, users, bookings, revenue
 - [x] Admin Payments tab — card-based layout with receipt thumbnail and confirm/cancel actions; multi-court sessions grouped into one card with "Confirm All"
 - [x] Admin Bookings tab — Today's Schedule calendar (columns = courts, rows = hourly slots per court's openTime→closeTime, location-picker for multi-location admins, clickable chips, detail modal)
+- [x] Admin Bookings calendar date navigation — Prev/Next/Today buttons + date picker; view historical/future bookings
 - [x] Inline payment flow — Step 4 on BookingPage (GCash QR + receipt upload without leaving the page)
 - [x] Dashboard multi-court grouping — same-session bookings shown as one expandable row; sub-rows show individual courts with per-court amounts; Cancel cancels all courts in session
 - [x] Court operating hours — openTime/closeTime fields on every court (required on creation); drive TimeSlotPicker range and admin calendar row range
+- [x] SUPER_ADMIN role — full CRUD on all users (create/edit/delete/role), global view of all courts + bookings; dedicated `/superadmin` portal; self-delete + last-SA protections
+- [x] User management removed from Admin Panel — only SUPER_ADMIN can manage users; admin endpoints removed from controller + service
+- [x] Mobile nav dropdown fix — dropdown hidden by default on mobile; toggles with `.open` class; `aria-expanded` on trigger button
+- [x] Mobile header visibility fix — navbar always has solid background on mobile (`z-index: 1000`); `nav-menu` gets `z-index: 999`; no longer transparent against page content
+- [x] Calendar Next button timezone fix — replaced `toISOString().split('T')[0]` with local-date arithmetic (`new Date(y, m-1, d+delta)`) to prevent UTC offset from shifting dates in UTC+ timezones
+- [x] Default courts removed from seed — fresh DB contains only the 3 dev accounts; courts must be created manually
+- [x] Strict contact number validation — exactly 11 digits, numeric only (e.g. 09171234567); enforced in both DTOs (`@Matches(/^\d{11}$/)`); frontend strips non-digits, shows `X/11` counter, red border when invalid; no international format allowed
+- [x] Admin Bookings table grouping — multi-court sessions grouped into one expandable row (same grouping key as Payments/Dashboard); `▶/▼` expander reveals per-court sub-rows; group-level Confirm/Cancel use `Promise.allSettled` over all booking IDs
+- [x] Calendar covered-cell visibility fix — `.cal-cell--covered` background raised to 8% opacity; inline style per-user color applied to covered cells via `getCoveringBooking()`; previously invisible 4% was too subtle
+- [x] Calendar user color-coding — 8-color deterministic palette (`userId % 8`); each booking chip overrides CSS class with inline `background/borderColor/color`; PENDING = dashed border; user legend strip below date nav bar; applies to both Admin and SuperAdmin calendars
 - [ ] Admin booking reschedule (move booking to a new time slot)
 - [ ] Waitlist / notification when cancelled slot opens
 - [ ] User profile & password change page
@@ -298,4 +322,4 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 - **Court ownership:** `Court.createdByAdminId` links each court to its creating admin; all admin mutations check ownership in service layer (ForbiddenException on mismatch); stats, bookings, and calendar are scoped to admin's own courts; frontend shows "VIEW ONLY" badge and hides action buttons for courts owned by other admins
 - **Email on booking:** `MailService` sends HTML confirmation email after `BookingsService.create()`; SMTP configured via env vars; email failures are non-fatal and logged; template matches dark neon brand; reusable for future email types via `sendMail()` private method
 
-*Last updated: 2026-06-18 (r9)*
+*Last updated: 2026-06-21 (r12)*

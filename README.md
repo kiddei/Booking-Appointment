@@ -98,10 +98,23 @@ This starts both servers at once:
 
 ## Test Accounts
 
-| Role   | Username  | Password     |
-|--------|-----------|--------------|
-| Admin  | `admin`   | `admin1234`  |
-| Player | `player1` | `player1234` |
+| Role        | Username      | Password           | Login URL      |
+|-------------|---------------|--------------------|----------------|
+| Super Admin | `superadmin`  | `superadmin1234`   | `/admin/login` → redirects to `/superadmin` |
+| Admin       | `admin`       | `admin1234`        | `/admin/login` → redirects to `/admin` |
+| Player      | `player1`     | `player1234`       | `/login`       |
+
+> **No courts are seeded.** After first login as Admin, create courts via **Admin Panel → Courts → Add Court**.
+
+### Role permissions at a glance
+
+| Feature               | Player | Admin | Super Admin |
+|-----------------------|:------:|:-----:|:-----------:|
+| Browse & book courts  | ✅    | ✅   | ✅          |
+| Manage own courts     | ❌    | ✅   | ✅          |
+| View own court bookings | ❌  | ✅   | ✅          |
+| User management       | ❌    | ❌   | ✅          |
+| Global court/booking view | ❌ | ❌  | ✅          |
 
 ---
 
@@ -125,8 +138,10 @@ docker compose down     # stop the database (data is saved)
 
 ```powershell
 cd backend
-npm run db:reset    # wipes all data and re-seeds test accounts
+npm run db:reset    # wipes all data and re-seeds the 3 dev accounts (no courts)
 ```
+
+After a reset, courts must be created manually by an Admin or Super Admin.
 
 ---
 

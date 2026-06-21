@@ -118,7 +118,7 @@ ul { list-style: none; }
 .navbar {
   position: fixed;
   top: 0; left: 0; right: 0;
-  z-index: 100;
+  z-index: 1000;
   transition: background var(--t), border-color var(--t), box-shadow var(--t);
   border-bottom: 1px solid transparent;
 }
@@ -1392,10 +1392,44 @@ th.sortable.desc .sort-arrow { opacity: 1; color: var(--neon); }
   padding: 2px;
 }
 .cal-grid__cell:last-child { border-right: none; }
-.cal-cell--covered { background: rgba(200,255,0,0.04); }
+.cal-cell--covered { background: rgba(200,255,0,0.08); }
 .cal-grid__cell .cal-booking {
   width: 100%; min-height: 40px; justify-content: center;
 }
+
+/* ── Calendar user-color legend ─────────────────────────── */
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.cal-legend__item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-2);
+}
+.cal-legend__dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.cal-legend__name { font-weight: 500; }
+
+/* ── Booking table grouping ──────────────────────────────── */
+.expand-toggle {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-3); font-size: 10px; padding: 0 4px 0 0;
+  vertical-align: middle;
+}
+.expand-toggle:hover { color: var(--neon); }
+.booking-sub-row td { background: var(--surface-2); font-size: 12px; }
+.booking-sub-row .td-sub { color: var(--text-2); }
+
+/* ── Contact number input validation ────────────────────── */
+.phone-digit-count {
+  font-size: 11px; font-weight: 400; color: var(--text-3);
+}
+.phone-digit-count--error { color: #ef4444; }
+.phone-digit-count--ok    { color: var(--neon); }
+.input-invalid { border-color: #ef4444 !important; }
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 900px) {
@@ -1413,9 +1447,16 @@ th.sortable.desc .sort-arrow { opacity: 1; color: var(--neon); }
 }
 
 @media (max-width: 768px) {
+  /* Always show a solid bar so the header is never transparent on mobile */
+  .navbar {
+    background: rgba(10,10,10,0.97);
+    border-bottom-color: var(--border);
+    backdrop-filter: blur(16px);
+  }
   .nav-toggle { display: flex; }
   .nav-menu {
     position: fixed; top: 64px; left: 0; right: 0;
+    z-index: 999;
     background: rgba(10,10,10,0.97);
     backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border);
@@ -1439,9 +1480,19 @@ th.sortable.desc .sort-arrow { opacity: 1; color: var(--neon); }
     border-radius: var(--radius-sm);
   }
   .nav-dropdown {
-    position: static; opacity: 1; pointer-events: auto; transform: none;
+    position: static; transform: none;
     box-shadow: none; background: var(--surface-3); margin-top: 4px;
-    border-radius: var(--radius-sm); padding: 4px;
+    border-radius: var(--radius-sm);
+    /* Hidden by default on mobile; shown when .open is applied */
+    max-height: 0; overflow: hidden; padding: 0;
+    opacity: 0; pointer-events: none;
+    transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.1s;
+  }
+  .nav-dropdown.open {
+    max-height: 320px;
+    opacity: 1;
+    pointer-events: auto;
+    padding: 4px;
   }
   .dropdown-item { padding: 11px 14px; font-size: 14px; border-radius: var(--radius-sm); }
   .btn-nav-outline,
@@ -1515,4 +1566,111 @@ th.sortable.desc .sort-arrow { opacity: 1; color: var(--neon); }
 
   /* Booking steps — hide labels on tiny screens */
   .booking-step__label { display: none; }
+}
+
+/* ── Super Admin styles ─────────────────────────────────── */
+
+.page-header--superadmin {
+  background: linear-gradient(135deg, rgba(168,85,247,0.15) 0%, transparent 60%);
+  border-bottom: 1px solid rgba(168,85,247,0.25);
+}
+
+.superadmin-crown {
+  font-size: 32px;
+  line-height: 1;
+}
+
+/* Role selector inline in table */
+.sa-role-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--t);
+}
+.sa-role-select:hover { border-color: var(--border-hover); }
+.sa-role-select--player      { border-color: rgba(100,100,100,0.4); }
+.sa-role-select--admin        { border-color: rgba(200,255,0,0.4);  color: var(--neon); }
+.sa-role-select--super-admin  { border-color: rgba(168,85,247,0.5); color: #c084fc; }
+
+/* Role filter dropdown */
+.sa-role-filter {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--t);
+  min-width: 140px;
+}
+.sa-role-filter:hover { border-color: var(--border-hover); }
+
+/* Delete icon button */
+.btn-icon--delete {
+  color: #f87171;
+  font-size: 13px;
+}
+.btn-icon--delete:hover { background: rgba(248,113,113,0.12); }
+
+/* ── Calendar date navigation ───────────────────────────── */
+
+.cal-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.cal-nav-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+.cal-nav-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+.cal-nav-btn--active {
+  background: rgba(200,255,0,0.12);
+  border-color: rgba(200,255,0,0.4);
+  color: var(--neon);
+}
+.cal-nav-btn--active:hover {
+  background: rgba(200,255,0,0.18);
+}
+
+.cal-date-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color var(--t);
+  color-scheme: dark;
+}
+.cal-date-input:hover { border-color: var(--border-hover); }
+.cal-date-input:focus { border-color: var(--neon); outline: none; }
+
+@media (max-width: 640px) {
+  .cal-date-nav { padding: 10px 12px; gap: 6px; }
+  .cal-nav-btn  { padding: 6px 10px; font-size: 12px; }
+  .sa-role-filter { min-width: 110px; }
 }

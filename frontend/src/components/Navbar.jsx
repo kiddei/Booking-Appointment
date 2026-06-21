@@ -30,7 +30,11 @@ export default function Navbar() {
     navigate('/')
   }
 
-  const isAdmin = user?.role === 'ADMIN'
+  const isAdmin      = user?.role === 'ADMIN'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isAdminOrSA  = isAdmin || isSuperAdmin
+
+  const adminPanelPath = isSuperAdmin ? '/superadmin' : '/admin'
 
   return (
     <nav className={`navbar${scrolled ? ' scrolled' : ''}`} id="navbar">
@@ -58,17 +62,31 @@ export default function Navbar() {
 
           {user ? (
             <div className="nav-auth-group">
-              {/* Players see Dashboard; Admins see Admin Panel as primary nav item */}
-              {isAdmin ? (
-                <Link to="/admin" className="nav-link nav-link--admin">Admin Panel</Link>
+              {isAdminOrSA ? (
+                <Link to={adminPanelPath} className="nav-link nav-link--admin">
+                  {isSuperAdmin ? 'Super Admin' : 'Admin Panel'}
+                </Link>
               ) : (
                 <Link to="/dashboard" className="nav-link">Dashboard</Link>
               )}
 
               <div className="nav-user-menu" ref={dropRef}>
-                <button className="nav-user-btn" onClick={() => setDropOpen(o => !o)}>
+                <button
+                  className="nav-user-btn"
+                  onClick={() => setDropOpen(o => !o)}
+                  aria-expanded={dropOpen}
+                  aria-haspopup="true"
+                >
                   <span className="user-avatar">{user.username[0].toUpperCase()}</span>
                   <span>{user.username}</span>
+                  {isSuperAdmin && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, background: '#a855f7', color: '#fff',
+                      borderRadius: 3, padding: '1px 5px', marginLeft: 4, letterSpacing: '0.5px',
+                    }}>
+                      SUPER
+                    </span>
+                  )}
                   {isAdmin && (
                     <span style={{
                       fontSize: 9, fontWeight: 700, background: 'var(--neon)', color: '#000',
@@ -82,15 +100,21 @@ export default function Navbar() {
                   </svg>
                 </button>
                 <div className={`nav-dropdown${dropOpen ? ' open' : ''}`}>
-                  {isAdmin ? (
+                  {isSuperAdmin ? (
                     <>
-                      <Link to="/admin"           className="dropdown-item dropdown-item--admin">Admin Panel</Link>
-                      <Link to="/dashboard"        className="dropdown-item">My Bookings</Link>
+                      <Link to="/superadmin"  className="dropdown-item dropdown-item--admin">Super Admin Panel</Link>
+                      <Link to="/admin"        className="dropdown-item dropdown-item--admin">Admin Panel</Link>
+                      <Link to="/dashboard"    className="dropdown-item">My Bookings</Link>
+                    </>
+                  ) : isAdmin ? (
+                    <>
+                      <Link to="/admin"        className="dropdown-item dropdown-item--admin">Admin Panel</Link>
+                      <Link to="/dashboard"    className="dropdown-item">My Bookings</Link>
                     </>
                   ) : (
                     <>
-                      <Link to="/dashboard"        className="dropdown-item">My Bookings</Link>
-                      <Link to="/bookings/new"     className="dropdown-item">New Booking</Link>
+                      <Link to="/dashboard"    className="dropdown-item">My Bookings</Link>
+                      <Link to="/bookings/new" className="dropdown-item">New Booking</Link>
                     </>
                   )}
                   <div className="dropdown-divider" />
