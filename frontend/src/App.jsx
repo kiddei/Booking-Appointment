@@ -13,6 +13,7 @@ import DashboardPage     from './pages/DashboardPage'
 import BookingPage       from './pages/BookingPage'
 import BookingDetailPage from './pages/BookingDetailPage'
 import AdminPage         from './pages/AdminPage'
+import SuperAdminPage    from './pages/SuperAdminPage'
 
 export default function App() {
   return (
@@ -42,9 +43,14 @@ export default function App() {
           <ProtectedRoute><BookingDetailPage /></ProtectedRoute>
         }/>
 
-        {/* Admin-only routes */}
+        {/* Admin-only routes (ADMIN + SUPER_ADMIN) */}
         <Route path="/admin/*" element={
           <ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>
+        }/>
+
+        {/* Super Admin-only routes */}
+        <Route path="/superadmin/*" element={
+          <ProtectedRoute superAdminOnly><SuperAdminPage /></ProtectedRoute>
         }/>
       </Routes>
       <Footer />

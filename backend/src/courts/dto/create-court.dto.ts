@@ -17,7 +17,7 @@ export class CreateCourtDto {
   ownerName: string
 
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^\d{11}$/, { message: 'Contact number must be exactly 11 digits (e.g. 09171234567).' })
   contactNumber: string
 
   @IsNumber()

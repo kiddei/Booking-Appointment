@@ -6,10 +6,6 @@ import { MailService } from '../mail/mail.service'
 import { CreateCourtDto } from '../courts/dto/create-court.dto'
 import { UpdateCourtDto } from '../courts/dto/update-court.dto'
 
-const USER_SELECT = {
-  id: true, username: true, email: true, role: true, active: true, createdAt: true,
-}
-
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name)
@@ -83,25 +79,6 @@ export class AdminService {
   async reactivateCourt(id: number, adminId: number) {
     await this.requireOwnedCourt(id, adminId)
     return this.prisma.court.update({ where: { id }, data: { active: true } })
-  }
-
-  // ── Users (global — all admins can view all users) ───────
-
-  findAllUsers() {
-    return this.prisma.user.findMany({
-      select: { ...USER_SELECT, _count: { select: { bookings: true } } },
-      orderBy: { createdAt: 'asc' },
-    })
-  }
-
-  async updateUserRole(id: number, role: 'PLAYER' | 'ADMIN') {
-    await this.requireUser(id)
-    return this.prisma.user.update({ where: { id }, data: { role }, select: USER_SELECT })
-  }
-
-  async toggleUserActive(id: number, active: boolean) {
-    await this.requireUser(id)
-    return this.prisma.user.update({ where: { id }, data: { active }, select: USER_SELECT })
   }
 
   // ── Bookings (scoped to admin's courts) ──────────────────
@@ -250,12 +227,6 @@ export class AdminService {
     if (court.createdByAdminId !== adminId)
       throw new ForbiddenException('You can only manage courts you created')
     return court
-  }
-
-  private async requireUser(id: number) {
-    const u = await this.prisma.user.findUnique({ where: { id } })
-    if (!u) throw new NotFoundException('User not found')
-    return u
   }
 
   private formatBooking(booking: any) {

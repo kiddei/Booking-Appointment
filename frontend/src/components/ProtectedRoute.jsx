@@ -1,7 +1,10 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children, adminOnly = false }) {
+const ADMIN_ROLES      = ['ADMIN', 'SUPER_ADMIN']
+const SUPER_ADMIN_ROLE = 'SUPER_ADMIN'
+
+export default function ProtectedRoute({ children, adminOnly = false, superAdminOnly = false }) {
   const { user, loading } = useAuth()
   const location          = useLocation()
 
@@ -13,14 +16,17 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     )
   }
 
-  // Not authenticated — send to the appropriate login page
   if (!user) {
-    const loginPath = adminOnly ? '/admin/login' : '/login'
+    const loginPath = (adminOnly || superAdminOnly) ? '/admin/login' : '/login'
     return <Navigate to={loginPath} state={{ from: location }} replace />
   }
 
-  // Player trying to access an admin-only route
-  if (adminOnly && user.role !== 'ADMIN') {
+  if (superAdminOnly && user.role !== SUPER_ADMIN_ROLE) {
+    if (ADMIN_ROLES.includes(user.role)) return <Navigate to="/admin" replace />
+    return <Navigate to="/dashboard" replace />
+  }
+
+  if (adminOnly && !ADMIN_ROLES.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
   }
 

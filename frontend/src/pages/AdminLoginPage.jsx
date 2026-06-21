@@ -18,12 +18,16 @@ export default function AdminLoginPage() {
     setLoading(true)
     try {
       const user = await login(form.username, form.password)
-      if (user.role !== 'ADMIN') {
+      if (user.role === 'PLAYER') {
         await import('../api/client').then(m => m.default.post('/auth/logout'))
         setError('This portal is for administrators only. Please use the player login.')
         return
       }
-      navigate('/admin', { replace: true })
+      if (user.role === 'SUPER_ADMIN') {
+        navigate('/superadmin', { replace: true })
+      } else {
+        navigate('/admin', { replace: true })
+      }
     } catch (err) {
       setError(err.message || 'Invalid username or password.')
     } finally {

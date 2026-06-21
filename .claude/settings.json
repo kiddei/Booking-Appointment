@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npx ts-node *)",
-      "Bash(node -e \"const n = require\\('nodemailer'\\); console.log\\(typeof n.createTransport, typeof n.createTestAccount, Object.keys\\(n\\).join\\(', '\\)\\)\")"
+      "Bash(node -e \"const n = require\\('nodemailer'\\); console.log\\(typeof n.createTransport, typeof n.createTestAccount, Object.keys\\(n\\).join\\(', '\\)\\)\")",
+      "Bash(find . -type f -name \"Navbar.jsx\" -o -name \"App.jsx\" -o -name \"auth.service.ts\" -o -name \"auth.controller.ts\" -o -name \"admin.service.ts\" -o -name \"admin.controller.ts\" 2>nul | head -20)",
+      "Bash(findstr -i \"super\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Andrei\\Documents\\GitHub\\Booking-Appointment"
     ]
   }
 }

@@ -21,6 +21,7 @@ export class UpdateCourtDto {
   ownerName?: string
 
   @IsString()
+  @Matches(/^\d{11}$/, { message: 'Contact number must be exactly 11 digits (e.g. 09171234567).' })
   @IsOptional()
   contactNumber?: string
 
