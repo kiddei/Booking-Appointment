@@ -14,6 +14,9 @@ model User {
   passwordHash  String
   role          Role      @default(PLAYER)
   active        Boolean   @default(true)
+  googleId      String?   @unique
+  emailVerified Boolean   @default(false)
+  authProvider  String    @default("local")
   bookings      Booking[]
   courtsCreated Court[]   @relation("AdminCourts")
   createdAt     DateTime  @default(now())

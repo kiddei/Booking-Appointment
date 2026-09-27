@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useToast } from '../context/ToastContext'
 import client from '../api/client'
 
 export default function BookingDetailPage() {
   const { id }               = useParams()
   const navigate             = useNavigate()
+  const toast                = useToast()
   const [booking, setBooking]   = useState(null)
   const [loading, setLoading]   = useState(true)
   const [cancelling, setCancelling] = useState(false)
@@ -24,7 +26,7 @@ export default function BookingDetailPage() {
       const res = await client.delete(`/bookings/${id}/cancel`)
       setBooking(res.data)
     } catch {
-      alert('Could not cancel booking.')
+      toast.error('Could not cancel booking.')
     } finally {
       setCancelling(false)
     }
@@ -192,8 +194,6 @@ function PaymentCard({ booking, bookingId, onSubmit }) {
 
       <div className="receipt-section">
         <div className="receipt-section__label">Upload Payment Receipt</div>
-
-        {err && <div className="alert alert-error" style={{ marginBottom: 12 }}>{err}</div>}
 
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
 

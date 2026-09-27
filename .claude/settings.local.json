@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($migDir = \"C:\\\\Users\\\\Andrei\\\\Documents\\\\GitHub\\\\Booking-Appointment\\\\backend\\\\prisma\\\\migrations\\\\20260624000000_add_google_oauth_fields\"; New-Item -ItemType Directory -Path $migDir -Force | Out-Null; Write-Output \"Directory created: $migDir\")",
+      "Bash(npm install *)"
+    ]
+  }
+}

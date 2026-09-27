@@ -1,6 +1,7 @@
 import { useEffect, useState, Fragment } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import client from '../api/client'
 
 function groupBookings(bookings) {
@@ -36,6 +37,7 @@ function groupBookings(bookings) {
 export default function DashboardPage() {
   const { user }                  = useAuth()
   const navigate                  = useNavigate()
+  const toast                     = useToast()
   const [bookings,   setBookings] = useState([])
   const [loading,    setLoading]  = useState(true)
   const [cancelling, setCancelling] = useState(null)
@@ -55,7 +57,7 @@ export default function DashboardPage() {
       await Promise.allSettled(ids.map(id => client.delete(`/bookings/${id}/cancel`)))
       setBookings(bs => bs.map(b => ids.includes(b.id) ? { ...b, status: 'CANCELLED' } : b))
     } catch {
-      alert('Could not cancel booking.')
+      toast.error('Could not cancel booking.')
     } finally {
       setCancelling(null)
     }

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useToast } from '../context/ToastContext'
 import client from '../api/client'
 import DatePicker from '../components/DatePicker'
 import PlayableCourtGrid from '../components/PlayableCourtGrid'
@@ -23,6 +24,7 @@ function fmtDate(iso) {
 export default function BookingPage() {
   const navigate         = useNavigate()
   const [searchParams]   = useSearchParams()
+  const toast            = useToast()
   const preselectedCourt = searchParams.get('courtId')
   const fileRef          = useRef(null)
 
@@ -86,11 +88,12 @@ export default function BookingPage() {
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
-    if (!form.courtId)                  { setError('Please select a court location.'); return }
-    if (!form.bookingDate)              { setError('Please choose a date.');            return }
-    if (form.courtNumbers.length === 0) { setError('Please select at least one court.'); return }
-    if (!form.startTime)                { setError('Please select a start time.');      return }
-    if (!form.endTime)                  { setError('Please select an end time.');       return }
+    const fail = (msg) => { setError(msg); toast.error(msg) }
+    if (!form.courtId)                  { fail('Please select a court location.'); return }
+    if (!form.bookingDate)              { fail('Please choose a date.');            return }
+    if (form.courtNumbers.length === 0) { fail('Please select at least one court.'); return }
+    if (!form.startTime)                { fail('Please select a start time.');      return }
+    if (!form.endTime)                  { fail('Please select an end time.');       return }
 
     setLoading(true)
     try {
@@ -112,14 +115,19 @@ export default function BookingPage() {
       if (failed.length === results.length) {
         const msg = failed[0].reason?.message || 'Could not create bookings. The slots may already be taken.'
         setError(msg)
+        toast.error(msg)
         return
       }
       if (failed.length > 0) {
-        setError(`${failed.length} court(s) could not be booked — slots may be taken. Proceed to pay for the ${successful.length} successful booking(s).`)
+        const msg = `${failed.length} court(s) could not be booked — slots may be taken. Proceed to pay for the ${successful.length} successful booking(s).`
+        setError(msg)
+        toast.warning(msg)
       }
       setBookedBookings(successful)
     } catch (err) {
-      setError(err.message || 'Could not create booking.')
+      const msg = err.message || 'Could not create booking.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -196,8 +204,6 @@ export default function BookingPage() {
                     <span className="booking-step__label">Payment</span>
                   </div>
                 </div>
-
-                {error && <div className="alert alert-error">{error}</div>}
 
                 {/* ── Step 4: Payment (shown after booking is created) ── */}
                 {step4Active ? (

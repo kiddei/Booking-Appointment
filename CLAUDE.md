@@ -280,6 +280,11 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 - [x] Admin Bookings table grouping — multi-court sessions grouped into one expandable row (same grouping key as Payments/Dashboard); `▶/▼` expander reveals per-court sub-rows; group-level Confirm/Cancel use `Promise.allSettled` over all booking IDs
 - [x] Calendar covered-cell visibility fix — `.cal-cell--covered` background raised to 8% opacity; inline style per-user color applied to covered cells via `getCoveringBooking()`; previously invisible 4% was too subtle
 - [x] Calendar user color-coding — 8-color deterministic palette (`userId % 8`); each booking chip overrides CSS class with inline `background/borderColor/color`; PENDING = dashed border; user legend strip below date nav bar; applies to both Admin and SuperAdmin calendars
+- [x] Global toast notification system — `ToastContext.jsx` with `useToast()` hook; 4 types (success/error/warning/info); fixed bottom-right stack; auto-dismiss (3–5 s by type); slide-in animation; manual dismiss button; replaces all `alert()` calls across AdminPage, SuperAdminPage, DashboardPage, BookingDetailPage; success toasts added for confirm/cancel/role/delete operations
+- [x] Super Admin users table alignment fix — `<td className="td-primary">` caused `display:block` on a `<td>`, breaking table cell layout; fixed to `<td><span className="td-primary">...</span></td>`
+- [x] How It Works page — `/about` route; hero, 6-step flow, 6 benefit cards, 7-item FAQ accordion, CTA section; all styles in `.hiw-*` / `.faq-*` selectors
+- [x] Error display fix — all form error states now also trigger `toast.error()` so errors are always visible regardless of scroll position; BookingPage adds `useRef` scroll-to-error behavior
+- [x] Google OAuth (Feature 18) — `passport-google-oauth20` strategy; `googleId`, `emailVerified`, `authProvider` fields on User; 3 new backend routes (`GET /auth/google`, `GET /auth/google/callback`, `POST /auth/google/complete`); new Google button on Login + Register pages; `CompleteProfilePage` at `/auth/complete-profile?token=...` for new-user profile setup; existing local accounts auto-linked on matching email; `refreshUser()` added to `AuthContext`; env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BACKEND_URL`, `FRONTEND_URL`
 - [ ] Admin booking reschedule (move booking to a new time slot)
 - [ ] Waitlist / notification when cancelled slot opens
 - [ ] User profile & password change page
@@ -322,4 +327,4 @@ For a single-server deployment, configure NestJS to serve the React `dist/` fold
 - **Court ownership:** `Court.createdByAdminId` links each court to its creating admin; all admin mutations check ownership in service layer (ForbiddenException on mismatch); stats, bookings, and calendar are scoped to admin's own courts; frontend shows "VIEW ONLY" badge and hides action buttons for courts owned by other admins
 - **Email on booking:** `MailService` sends HTML confirmation email after `BookingsService.create()`; SMTP configured via env vars; email failures are non-fatal and logged; template matches dark neon brand; reusable for future email types via `sendMail()` private method
 
-*Last updated: 2026-06-21 (r12)*
+*Last updated: 2026-06-24 (r14)*

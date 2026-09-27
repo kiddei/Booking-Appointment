@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react'
 import client from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 
 const PAGE_SIZE = 10
 
@@ -101,6 +102,7 @@ function StatCard({ label, value, sub, accent }) {
 
 /* ── Courts Tab ─────────────────────────────────────────── */
 function CourtsTab({ adminId }) {
+  const toast                     = useToast()
   const [courts,    setCourts]    = useState([])
   const [loading,   setLoading]   = useState(true)
   const [showAdd,   setShowAdd]   = useState(false)
@@ -127,8 +129,9 @@ function CourtsTab({ adminId }) {
     try {
       const res = await client.patch(`/admin/courts/${court.id}/${action}`)
       setCourts(cs => cs.map(c => c.id === court.id ? res.data : c))
+      toast.success(`Court ${court.active ? 'deactivated' : 'reactivated'} successfully.`)
     } catch {
-      alert(`Could not ${action} court.`)
+      toast.error(`Could not ${action} court.`)
     }
   }
 
@@ -322,8 +325,6 @@ function CourtModal({ court, onClose, onSaved }) {
           <button className="modal__close" onClick={onClose}>×</button>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
-
         <form onSubmit={handleSubmit}>
 
           <div className="form-group">
@@ -508,6 +509,7 @@ function groupBookings(bookings) {
 }
 
 function BookingsTab() {
+  const toast                                 = useToast()
   const [bookings,        setBookings]        = useState([])
   const [courts,          setCourts]          = useState([])
   const [loading,         setLoading]         = useState(true)
@@ -816,12 +818,12 @@ function BookingsTab() {
                             <div className="td-actions">
                               {g.status === 'PENDING' && (
                                 <button className="btn-icon btn-icon--success"
-                                  onClick={() => handleConfirmGroup(g.ids, setBookings)}
+                                  onClick={() => handleConfirmGroup(g.ids, setBookings, toast)}
                                   title={isMulti ? `Confirm all ${g.ids.length} courts` : 'Confirm booking'}>✓</button>
                               )}
                               {(g.status === 'CONFIRMED' || g.status === 'PENDING') && (
                                 <button className="btn-icon btn-icon--danger"
-                                  onClick={() => handleCancelGroup(g.ids, setBookings)}
+                                  onClick={() => handleCancelGroup(g.ids, setBookings, toast)}
                                   title={isMulti ? `Cancel all ${g.ids.length} courts` : 'Cancel booking'}>✕</button>
                               )}
                             </div>
@@ -899,7 +901,7 @@ function BookingsTab() {
                   <button
                     className="btn btn-neon"
                     style={{ flex: 1 }}
-                    onClick={() => { handleConfirm(calModal.id, setBookings); setCalModal(null) }}
+                    onClick={() => { handleConfirm(calModal.id, setBookings, toast); setCalModal(null) }}
                   >
                     ✓ Confirm
                   </button>
@@ -951,6 +953,7 @@ function groupPayments(bookings) {
 }
 
 function PaymentsTab() {
+  const toast = useToast()
   const [bookings,     setBookings]     = useState([])
   const [loading,      setLoading]      = useState(true)
   const [receiptModal, setReceiptModal] = useState(null)
@@ -975,8 +978,9 @@ function PaymentsTab() {
     try {
       await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/confirm`)))
       setBookings(bs => bs.filter(b => !ids.includes(b.id)))
+      toast.success('Booking confirmed.')
     } catch {
-      alert('Could not confirm booking.')
+      toast.error('Could not confirm booking.')
     }
   }
 
@@ -985,8 +989,9 @@ function PaymentsTab() {
     try {
       await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/cancel`)))
       setBookings(bs => bs.filter(b => !ids.includes(b.id)))
+      toast.success('Booking cancelled.')
     } catch {
-      alert('Could not cancel booking.')
+      toast.error('Could not cancel booking.')
     }
   }
 
@@ -1094,17 +1099,18 @@ function localDateISO(date) {
   return `${y}-${m}-${d}`
 }
 
-async function handleConfirm(id, setBookings) {
+async function handleConfirm(id, setBookings, toast) {
   if (!window.confirm('Confirm this booking?')) return
   try {
     const res = await client.patch(`/admin/bookings/${id}/confirm`)
     setBookings(bs => bs.map(b => b.id === id ? res.data : b))
+    toast.success('Booking confirmed.')
   } catch {
-    alert('Could not confirm booking.')
+    toast.error('Could not confirm booking.')
   }
 }
 
-async function handleConfirmGroup(ids, setBookings) {
+async function handleConfirmGroup(ids, setBookings, toast) {
   if (!window.confirm(`Confirm this booking${ids.length > 1 ? ` (${ids.length} courts)` : ''}?`)) return
   try {
     const results = await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/confirm`)))
@@ -1113,10 +1119,11 @@ async function handleConfirmGroup(ids, setBookings) {
       const map = new Map(confirmed.map(b => [b.id, b]))
       setBookings(bs => bs.map(b => map.has(b.id) ? map.get(b.id) : b))
     }
-  } catch { alert('Could not confirm booking.') }
+    toast.success(`Booking confirmed${ids.length > 1 ? ` (${ids.length} courts)` : ''}.`)
+  } catch { toast.error('Could not confirm booking.') }
 }
 
-async function handleCancelGroup(ids, setBookings) {
+async function handleCancelGroup(ids, setBookings, toast) {
   if (!window.confirm(`Cancel this booking${ids.length > 1 ? ` (${ids.length} courts)` : ''}?`)) return
   try {
     const results = await Promise.allSettled(ids.map(id => client.patch(`/admin/bookings/${id}/cancel`)))
@@ -1125,7 +1132,8 @@ async function handleCancelGroup(ids, setBookings) {
       const map = new Map(cancelled.map(b => [b.id, b]))
       setBookings(bs => bs.map(b => map.has(b.id) ? map.get(b.id) : b))
     }
-  } catch { alert('Could not cancel booking.') }
+    toast.success(`Booking cancelled${ids.length > 1 ? ` (${ids.length} courts)` : ''}.`)
+  } catch { toast.error('Could not cancel booking.') }
 }
 
 function Pagination({ page, setPage, totalPages }) {

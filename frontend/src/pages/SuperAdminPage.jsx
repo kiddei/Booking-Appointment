@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react'
 import client from '../api/client'
+import { useToast } from '../context/ToastContext'
 
 const PAGE_SIZE = 10
 const ALL_ROLES = ['PLAYER', 'ADMIN', 'SUPER_ADMIN']
@@ -104,6 +105,7 @@ function StatCard({ label, value, sub, accent }) {
 
 /* ── Users Tab ──────────────────────────────────────────── */
 function SAUsersTab() {
+  const toast                        = useToast()
   const [users,      setUsers]      = useState([])
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
@@ -127,8 +129,9 @@ function SAUsersTab() {
     try {
       const res = await client.patch(`/superadmin/users/${user.id}/role`, { role: newRole })
       setUsers(us => us.map(u => u.id === user.id ? { ...u, ...res.data } : u))
+      toast.success(`${user.username}'s role updated to ${newRole}.`)
     } catch (err) {
-      alert(err.message || 'Could not update role.')
+      toast.error(err.message || 'Could not update role.')
     }
   }
 
@@ -139,8 +142,9 @@ function SAUsersTab() {
     try {
       const res = await client.patch(`/superadmin/users/${user.id}/${action}`)
       setUsers(us => us.map(u => u.id === user.id ? { ...u, ...res.data } : u))
+      toast.success(`Account ${action}d for ${user.username}.`)
     } catch (err) {
-      alert(err.message || `Could not ${action} user.`)
+      toast.error(err.message || `Could not ${action} user.`)
     }
   }
 
@@ -149,8 +153,9 @@ function SAUsersTab() {
     try {
       await client.delete(`/superadmin/users/${user.id}`)
       setUsers(us => us.filter(u => u.id !== user.id))
+      toast.success(`User "${user.username}" deleted.`)
     } catch (err) {
-      alert(err.message || 'Could not delete user.')
+      toast.error(err.message || 'Could not delete user.')
     }
   }
 
@@ -216,7 +221,7 @@ function SAUsersTab() {
                 <tbody>
                   {pageUsers.map(u => (
                     <tr key={u.id} className={!u.active ? 'row-inactive' : ''}>
-                      <td className="td-primary">{u.username}</td>
+                      <td><span className="td-primary">{u.username}</span></td>
                       <td className="td-muted">{u.email}</td>
                       <td>
                         <select
@@ -331,8 +336,6 @@ function UserModal({ user, onClose, onSaved }) {
           <h3>{isEdit ? 'Edit User' : 'Create User'}</h3>
           <button className="modal__close" onClick={onClose}>×</button>
         </div>
-
-        {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit} style={{ padding: '0 24px 24px' }}>
           <div className="form-group">
@@ -512,6 +515,7 @@ function groupSABookings(bookings) {
 }
 
 function SABookingsTab() {
+  const toast                                 = useToast()
   const [bookings,        setBookings]        = useState([])
   const [courts,          setCourts]          = useState([])
   const [loading,         setLoading]         = useState(true)
@@ -550,8 +554,9 @@ function SABookingsTab() {
       const res = await client.patch(`/superadmin/bookings/${id}/confirm`)
       setBookings(bs => bs.map(b => b.id === id ? res.data : b))
       if (calModal?.id === id) setCalModal(res.data)
+      toast.success('Booking confirmed.')
     } catch (err) {
-      alert(err.message || 'Could not confirm booking.')
+      toast.error(err.message || 'Could not confirm booking.')
     }
   }
 
@@ -561,8 +566,9 @@ function SABookingsTab() {
       const res = await client.patch(`/superadmin/bookings/${id}/cancel`)
       setBookings(bs => bs.map(b => b.id === id ? res.data : b))
       if (calModal?.id === id) setCalModal(null)
+      toast.success('Booking cancelled.')
     } catch {
-      alert('Could not cancel booking.')
+      toast.error('Could not cancel booking.')
     }
   }
 
@@ -575,7 +581,8 @@ function SABookingsTab() {
         const map = new Map(confirmed.map(b => [b.id, b]))
         setBookings(bs => bs.map(b => map.has(b.id) ? map.get(b.id) : b))
       }
-    } catch { alert('Could not confirm booking.') }
+      toast.success(`Booking confirmed${ids.length > 1 ? ` (${ids.length} courts)` : ''}.`)
+    } catch { toast.error('Could not confirm booking.') }
   }
 
   const handleCancelGroup = async (ids) => {
@@ -587,7 +594,8 @@ function SABookingsTab() {
         const map = new Map(cancelled.map(b => [b.id, b]))
         setBookings(bs => bs.map(b => map.has(b.id) ? map.get(b.id) : b))
       }
-    } catch { alert('Could not cancel booking.') }
+      toast.success(`Booking cancelled${ids.length > 1 ? ` (${ids.length} courts)` : ''}.`)
+    } catch { toast.error('Could not cancel booking.') }
   }
 
   const toggleSort = key => {

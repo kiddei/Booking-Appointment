@@ -31,8 +31,14 @@ export function AuthProvider({ children }) {
     return res.data
   }
 
+  const refreshUser = async () => {
+    const res = await client.get('/auth/me')
+    setUser(res.data)
+    return res.data
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

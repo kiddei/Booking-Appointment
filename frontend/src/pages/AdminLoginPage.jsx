@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 
 export default function AdminLoginPage() {
   const { login }    = useAuth()
   const navigate     = useNavigate()
+  const toast        = useToast()
 
   const [form, setForm]       = useState({ username: '', password: '' })
   const [error, setError]     = useState('')
@@ -20,7 +22,9 @@ export default function AdminLoginPage() {
       const user = await login(form.username, form.password)
       if (user.role === 'PLAYER') {
         await import('../api/client').then(m => m.default.post('/auth/logout'))
-        setError('This portal is for administrators only. Please use the player login.')
+        const msg = 'This portal is for administrators only. Please use the player login.'
+        setError(msg)
+        toast.error(msg)
         return
       }
       if (user.role === 'SUPER_ADMIN') {
@@ -29,7 +33,9 @@ export default function AdminLoginPage() {
         navigate('/admin', { replace: true })
       }
     } catch (err) {
-      setError(err.message || 'Invalid username or password.')
+      const msg = err.message || 'Invalid username or password.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -56,8 +62,6 @@ export default function AdminLoginPage() {
 
         <h1 className="auth-title">Administrator Sign In</h1>
         <p className="auth-sub">Access the PicklePro management console</p>
-
-        {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
